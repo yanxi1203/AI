@@ -12,7 +12,8 @@
 **/.video-build/
 
 # Local financial data and runtime output
-ai-finance-app/server/data/
+ai-finance-app/server/data/*
+!ai-finance-app/server/data/goalEstimateReferences.js
 **/*.log
 **/*.tmp
 **/*.inspect.ndjson

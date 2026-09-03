@@ -25,7 +25,13 @@
   - `createFinancialSetup` 統一首次設定與設定頁的收入、固定支出、儲蓄、日常預算及待估算狀態。
   - 收入未知時不以 0 元誤判超支；補上收入後再重新計算。
 - `src/modules/goals/goalPlanner.js`
-  - 負責目標估算、儲蓄方案與進行中／完成／封存狀態轉換。
+  - 負責夢想類型與金額辨識、儲蓄速度方案、確認後建立，以及進行中／完成／封存狀態轉換。
+- `src/modules/persistence/goalEstimateClient.js`
+  - 前端夢想估算接口；優先呼叫 `/api/goals/estimate`，後端離線時使用同一套純函式規則並標示為離線參考估算。
+- `server/services/goalEstimator.js`
+  - 依 `travel`、`product`、`event`、`education`、`custom` 分派估算器，所有估算器回傳同一資料契約。
+- `server/data/goalEstimateReferences.js`
+  - 唯一的內建價格參考資料；React 頁面不保存另一套價格規則。
 
 ## App 組合與資料流
 
@@ -50,7 +56,7 @@
 - `src/modules/persistence/latestSnapshotSaver.js`
   - 快速連續操作時依序保存，排隊中的舊快照會合併成最新快照，避免舊請求晚回來覆蓋新資料。
 - `server/appServer.js`
-  - 提供 `/api/health`、`/api/state` 與 `/api/assistant/message` 的 HTTP 接口。
+  - 提供 `/api/health`、`/api/state`、`/api/assistant/message` 與 `/api/goals/estimate` 的 HTTP 接口。
   - 自然語言訊息由後端呼叫既有 `processFinanceMessage`，新增或修正成功時一併保存帳本。
 - `server/stateStore.js`
   - 驗證並依匿名裝置識別保存狀態至 `server/data/users/`。
@@ -62,6 +68,18 @@
 目前是免登入、匿名裝置隔離的本機資料 MVP。登入、雲端資料庫與跨裝置同步是後續擴充；換成雲端時，優先替換持久化接口後方的實作，不改動頁面與財務計算模組。
 
 自然語言判斷目前仍是可測試的規則式模組，尚未呼叫外部大型語言模型。前端透過 `financeAssistantClient.js` 使用後端；後端離線時才使用相同的前端模組作為備援。
+
+夢想建立資料流：
+
+```text
+夢想名稱
+  → 已知金額：直接選擇儲蓄速度
+  → 未知金額：類型辨識／使用者選擇 → 逐題蒐集條件
+  → goalEstimateClient → POST /api/goals/estimate
+  → goalEstimator 與各類估算器 → 統一費用區間
+  → 使用者選費用方案 → 選儲蓄速度 → 最後確認
+  → FinanceApp 既有 goals → appStateClient → Supabase／JSON／localStorage
+```
 
 開發時使用 `pnpm run dev` 同時啟動前後端，後端程式修改後會自動重啟；`pnpm run verify` 執行完整測試、lint 與正式建置，`pnpm run smoke` 驗證實際 HTTP 記帳與保存流程。
 

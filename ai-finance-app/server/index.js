@@ -4,6 +4,7 @@ import { createAppServer } from './appServer.js';
 import { createPartitionedFileStateStore } from './stateStore.js';
 import { createMigratingStateStore, createSupabaseStateStore } from './supabaseStateStore.js';
 import { processFinanceMessage } from '../src/modules/transactions/transactionAssistant.js';
+import { estimateGoal } from './services/goalEstimator.js';
 
 const serverDirectory = dirname(fileURLToPath(import.meta.url));
 const port = Number(process.env.FINANCE_API_PORT || 8787);
@@ -27,7 +28,11 @@ const store = usesSupabase
     })
   : localStore;
 
-const server = createAppServer({ store, financeMessageProcessor: processFinanceMessage });
+const server = createAppServer({
+  store,
+  financeMessageProcessor: processFinanceMessage,
+  goalEstimator: estimateGoal
+});
 server.listen(port, host, () => {
   console.log(`AI 財務管家後端已啟動：http://${host}:${port}`);
   console.log(`資料儲存：${usesSupabase ? 'Supabase 雲端資料庫' : '本機 JSON（尚未設定 Supabase）'}`);

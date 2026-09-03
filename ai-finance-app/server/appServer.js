@@ -40,7 +40,7 @@ const readDeviceContext = (request) => {
   };
 };
 
-export function createAppServer({ store, financeMessageProcessor, logger = console }) {
+export function createAppServer({ store, financeMessageProcessor, goalEstimator, logger = console }) {
   if (!store) throw new TypeError('store 為必填');
 
   return createServer(async (request, response) => {
@@ -95,6 +95,18 @@ export function createAppServer({ store, financeMessageProcessor, logger = conso
           assistant: { pendingConfirmation: result.pendingConfirmation || null }
         });
         sendJson(response, 200, { result });
+        return;
+      }
+
+      if (request.method === 'POST' && url.pathname === '/api/goals/estimate') {
+        if (typeof goalEstimator !== 'function') throw new Error('尚未設定夢想估算模組');
+        const body = await readJsonBody(request);
+        const estimate = goalEstimator({
+          goalType: body.goalType,
+          title: body.title,
+          requirements: body.requirements
+        });
+        sendJson(response, 200, { status: 'estimated', estimate });
         return;
       }
 

@@ -2,18 +2,60 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import {
   changeGoalStatus,
+  createConfirmedGoal,
   createGoalPlans,
-  estimateGoalAmount,
+  detectGoalType,
+  getGoalAmountRoute,
   getGoalStatus,
   groupGoalsByStatus,
+  parseGoalAmount,
   updateGoalRecord
 } from './goalPlanner.js';
 
-test('estimates a travel goal without presenting it as live market data', () => {
-  const estimate = estimateGoalAmount('去英國看雪');
-  assert.equal(estimate.category, '旅行');
-  assert.equal(estimate.amount, 100000);
-  assert.equal(estimate.source, '前端示範參考值');
+test('known goal amounts skip estimation while unknown ambiguous goals ask for a type', () => {
+  assert.equal(getGoalAmountRoute({ amountMode: 'known', amountInput: '30,000', title: '新電腦' }), 'savings');
+  assert.equal(getGoalAmountRoute({ amountMode: 'estimate', title: '完成一件很重要的事' }), 'type');
+  assert.equal(getGoalAmountRoute({ amountMode: 'estimate', title: '我想去日本玩一週' }), 'requirements');
+});
+
+test('goal amounts support Arabic and Chinese ten-thousand notation', () => {
+  assert.equal(parseGoalAmount('30000'), 30000);
+  assert.equal(parseGoalAmount('30,000'), 30000);
+  assert.equal(parseGoalAmount('3萬'), 30000);
+  assert.equal(parseGoalAmount('三萬'), 30000);
+});
+
+test('goal type detection distinguishes supported types and leaves ambiguous text unclassified', () => {
+  assert.equal(detectGoalType('我想去日本玩一週'), 'travel');
+  assert.equal(detectGoalType('我想買一台設計用電腦'), 'product');
+  assert.equal(detectGoalType('我想參加演唱會'), 'event');
+  assert.equal(detectGoalType('我想上設計課程'), 'education');
+  assert.equal(detectGoalType('完成一件很重要的事'), null);
+});
+
+test('a goal record is not created before the user confirms it', () => {
+  const input = {
+    confirmed: false,
+    draft: {
+      title: '設計用筆電',
+      type: 'product',
+      category: 'computer',
+      targetAmount: 45000,
+      requirements: {},
+      estimation: { optionId: 'economy', minAmount: 38000, maxAmount: 50000, recommendedAmount: 45000, sourceType: 'internal_reference', updatedAt: '2026-09-03' }
+    },
+    savingsPlan: { id: 'balanced', months: 12, monthlyContribution: 3800, targetDate: '2027-09-03' },
+    now: new Date('2026-09-03T00:00:00.000Z'),
+    id: 'goal_test'
+  };
+
+  assert.equal(createConfirmedGoal(input), null);
+  const goal = createConfirmedGoal({ ...input, confirmed: true });
+  assert.equal(goal.id, 'goal_test');
+  assert.equal(goal.targetAmount, 45000);
+  assert.equal(goal.planId, 'balanced');
+  assert.equal(goal.estimation.optionId, 'economy');
+  assert.equal(goal.status, 'active');
 });
 
 test('creates comfortable, balanced and accelerated saving choices', () => {

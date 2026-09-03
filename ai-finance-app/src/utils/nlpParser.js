@@ -16,7 +16,10 @@ export function parseNaturalLanguageInput(text, now = new Date()) {
   if (/(薪水|薪資|發薪|收入|入帳|賺了|領了|領到|收到|獲得|工資|打工|獎金|獎學金|零用錢|退款|退費|家人給|媽媽給|爸爸給)/i.test(cleanText)) {
     intentType = 'income';
     category = /(退款|退費)/.test(cleanText) ? '退款' : '收入';
-  } else if (/(想存|存入|目標|夢想|旅遊|買車|買相機|買筆電|存錢)/i.test(cleanText) && /(存|目標|夢想)/i.test(cleanText)) {
+  } else if (
+    (/(想存|存入|目標|夢想|旅遊|買車|買相機|買筆電|存錢)/i.test(cleanText) && /(存|目標|夢想)/i.test(cleanText))
+    || /(想|希望|打算|計畫).*(去|旅行|旅遊|出國|買|存|參加|上.+課程|搬家)/i.test(cleanText)
+  ) {
     intentType = 'goal';
     category = '儲蓄夢想';
   }
@@ -24,6 +27,8 @@ export function parseNaturalLanguageInput(text, now = new Date()) {
   // Category Keyword Classification
   if (intentType === 'income') {
     // Income keeps its own category even if the description contains other words.
+  } else if (intentType === 'goal') {
+    // Goal planning stays separate from ledger expense categories.
   } else if (/(早餐|午餐|晚餐|宵夜|便當|餐廳|吃了|餐費|咖啡|手搖|飲料|甜點|火鍋|燒肉)/i.test(cleanText)) {
     category = '飲食';
   } else if (/(公車|捷運|高鐵|計程車|車資|加油|車票|交通)/i.test(cleanText)) {

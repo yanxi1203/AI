@@ -1,6 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { createAppServer } from './appServer.js';
+import { estimateGoal } from './services/goalEstimator.js';
 import { processFinanceMessage } from '../src/modules/transactions/transactionAssistant.js';
 
 const listen = (server) => new Promise((resolve) => server.listen(0, '127.0.0.1', resolve));
@@ -157,6 +158,83 @@ test('state routes reject requests without a device identity', async () => {
     const response = await fetch(`http://127.0.0.1:${port}/api/state`);
     assert.equal(response.status, 400);
     assert.match((await response.json()).error, /裝置識別/);
+  } finally {
+    await close(server);
+  }
+});
+
+test('goal estimate HTTP interface returns one shared estimate response', async () => {
+  const store = { load: async () => null, save: async (_id, next) => next, clear: async () => {} };
+  const server = createAppServer({ store, goalEstimator: estimateGoal, logger: { error() {} } });
+  await listen(server);
+  const { port } = server.address();
+
+  try {
+    const response = await fetch(`http://127.0.0.1:${port}/api/goals/estimate`, {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({
+        goalType: 'product',
+        title: '設計用筆電',
+        requirements: { productType: 'computer', usage: 'graphic_design', level: 'balanced' }
+      })
+    });
+    const body = await response.json();
+    assert.equal(response.status, 200);
+    assert.equal(body.status, 'estimated');
+    assert.equal(body.estimate.goalType, 'product');
+    assert.equal(body.estimate.title, '設計用筆電');
+    assert.deepEqual(body.estimate.options.map(({ id }) => id), ['economy', 'balanced', 'comfortable']);
+    assert.ok(body.estimate.breakdown.some(({ id }) => id === 'product'));
+  } finally {
+    await close(server);
+  }
+});
+
+test('goal estimate HTTP interface explains insufficient data without inventing a price', async () => {
+  const store = { load: async () => null, save: async (_id, next) => next, clear: async () => {} };
+  const server = createAppServer({ store, goalEstimator: estimateGoal, logger: { error() {} } });
+  await listen(server);
+  const { port } = server.address();
+
+  try {
+    const response = await fetch(`http://127.0.0.1:${port}/api/goals/estimate`, {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({ goalType: 'event', title: '參加活動', requirements: {} })
+    });
+    assert.equal(response.status, 400);
+    assert.match((await response.json()).error, /票價|自行填寫/);
+  } finally {
+    await close(server);
+  }
+});
+
+test('state HTTP interface restores goal estimation details after a reload', async () => {
+  const states = new Map();
+  const store = {
+    load: async (deviceId) => states.get(deviceId) || null,
+    save: async (deviceId, next) => (states.set(deviceId, next), next),
+    clear: async (deviceId) => { states.delete(deviceId); }
+  };
+  const server = createAppServer({ store, logger: { error() {} } });
+  await listen(server);
+  const { port } = server.address();
+  const url = `http://127.0.0.1:${port}/api/state`;
+  const headers = deviceHeaders('device-goal-reload', { 'content-type': 'application/json' });
+  const goal = {
+    id: 'goal_design_laptop',
+    type: 'product',
+    title: '設計用筆電',
+    targetAmount: 45000,
+    requirements: { productType: 'computer', usage: 'graphic_design' },
+    estimation: { optionId: 'balanced', minAmount: 38000, maxAmount: 50000, recommendedAmount: 45000, sourceType: 'internal_reference', updatedAt: '2026-09-03' }
+  };
+
+  try {
+    await fetch(url, { method: 'PUT', headers, body: JSON.stringify({ state: { goals: [goal] } }) });
+    const restored = await (await fetch(url, { headers })).json();
+    assert.deepEqual(restored.state.goals[0], goal);
   } finally {
     await close(server);
   }

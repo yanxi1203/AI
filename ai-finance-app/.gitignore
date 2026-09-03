@@ -14,7 +14,8 @@ dist-ssr
 .env
 .env.*
 !.env.example
-server/data/
+server/data/*
+!server/data/goalEstimateReferences.js
 
 # Editor directories and files
 .vscode/*

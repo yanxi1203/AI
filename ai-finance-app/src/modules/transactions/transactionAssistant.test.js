@@ -246,3 +246,20 @@ test('dream sentence is routed to goal flow without adding a transaction', () =>
   assert.equal(result.kind, 'chat');
   assert.equal(result.parsed.type, 'goal');
 });
+
+test('dream planning sentences never become ledger expenses', () => {
+  const messages = [
+    '我想去日本玩一週',
+    '我和朋友想去日本，但不知道要花多少',
+    '我想買一台設計用電腦',
+    '我想存三萬買筆電',
+    '我想參加演唱會'
+  ];
+
+  for (const text of messages) {
+    const result = processFinanceMessage({ text, transactions: [], now: NOW });
+    assert.equal(result.kind, 'chat', text);
+    assert.equal(result.parsed.type, 'goal', text);
+    assert.equal('transactions' in result, false, text);
+  }
+});
