@@ -1,0 +1,55 @@
+<!-- PROTOTYPE: One iPhone 14 AI-first home layout. -->
+<main id="prototype-root" class="app-shell" aria-label="AI 財務管家首頁架構草稿">
+  <section id="screen" class="phone" aria-live="polite"></section>
+</main>
+
+<style>
+  :root { font-family: ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; color: #202020; background: #ececec; }
+  * { box-sizing: border-box; }
+  body { margin: 0; min-height: 100vh; }
+  .app-shell { min-height: 100vh; padding: 24px 16px 96px; }
+  .phone { width: min(100%, 390px); min-height: 844px; margin: 0 auto; overflow: hidden; border: 2px solid #202020; border-radius: 34px; background: #fff; }
+  .ios-status { display: flex; align-items: center; justify-content: space-between; height: 39px; padding: 8px 28px 0; font-size: 12px; font-weight: 500; }
+  .ios-notch { width: 118px; height: 24px; margin-top: -8px; border-radius: 0 0 14px 14px; background: #202020; }
+  .date, .muted { color: #666; font-size: 12px; }
+  .top { padding: 22px 22px 15px; }
+  .line { border-top: 1px solid #d2d2d2; }
+  h1, h2, h3, p { margin: 0; }
+  h1 { margin-top: 7px; font-size: 23px; font-weight: 500; letter-spacing: -.4px; }
+  h2 { font-size: 16px; font-weight: 500; }
+  h3 { font-size: 14px; font-weight: 500; }
+  .butler-box { margin: 0 16px; padding: 18px; border: 1.5px solid #202020; border-radius: 15px; }
+  .butler-label { font-size: 13px; font-weight: 500; }
+  .butler-copy { margin-top: 9px; font-size: 15px; line-height: 1.55; }
+  .amount { margin-top: 13px; font-size: 31px; font-weight: 500; letter-spacing: -.8px; }
+  .notice { display: flex; gap: 9px; margin-top: 14px; padding-top: 13px; border-top: 1px solid #bcbcbc; font-size: 13px; line-height: 1.45; }
+  .dot { width: 7px; height: 7px; margin-top: 5px; flex: none; border-radius: 50%; background: #202020; }
+  .prompt { margin: 16px; padding: 13px 14px; border: 1px solid #777; border-radius: 11px; color: #666; font-size: 14px; }
+  .section { padding: 18px 22px 0; }
+  .section-head { display: flex; justify-content: space-between; align-items: baseline; margin-bottom: 7px; }
+  .entry { display: flex; justify-content: space-between; padding: 12px 0; border-top: 1px solid #d3d3d3; font-size: 14px; }
+  .goal { padding-bottom: 16px; }
+  .bar { height: 6px; margin-top: 9px; overflow: hidden; border-radius: 5px; background: #dedede; }
+  .fill { width: 12%; height: 100%; background: #202020; }
+  .nav { display: flex; justify-content: space-around; margin-top: 14px; padding: 14px 8px 28px; border-top: 1px solid #d3d3d3; color: #666; font-size: 11px; }
+  .nav strong { color: #202020; font-weight: 500; }
+  .timeline { padding: 0 22px; }
+  .timeline-item { display: grid; grid-template-columns: 18px 1fr; gap: 10px; padding: 0 0 18px; }
+  .timeline-mark { position: relative; width: 10px; height: 10px; margin-top: 5px; border: 2px solid #202020; border-radius: 50%; background: #fff; }
+  .timeline-item:not(:last-child) .timeline-mark::after { position: absolute; top: 10px; left: 2px; width: 2px; height: 25px; background: #bdbdbd; content: ""; }
+  .timeline-item p { margin-top: 4px; font-size: 14px; line-height: 1.45; }
+  @media (max-width: 360px) { .app-shell { padding-inline: 8px; } .phone { min-height: 844px; border-radius: 18px; } }
+</style>
+
+<script>
+  document.querySelector('#screen').innerHTML = `
+    <div class="ios-status"><span>9:41</span><span class="ios-notch" aria-hidden="true"></span><span>●●●</span></div>
+    <div class="top"><div class="date">8 月 17 日，星期一</div><h1>今天，管家幫你整理好了。</h1></div>
+    <section class="butler-box"><div class="butler-label">AI 管家</div><p class="butler-copy">這個月的額度還算穩定，先處理眼前最重要的事就好。</p><div class="amount">$ 6,420</div><div class="muted">本月還可使用 · 距離月底 14 天</div></section>
+    <section class="section"><div class="section-head"><h2>今天的財務待辦</h2><span class="muted">2 件</span></div></section>
+    <div class="timeline"><div class="timeline-item"><span class="timeline-mark"></span><div><h3>確認網路費</h3><p>本月 $599 尚未看到繳費紀錄。</p></div></div><div class="timeline-item"><span class="timeline-mark"></span><div><h3>英國看雪之旅</h3><p>離本月存錢目標還差 $2,000。</p></div></div></div>
+    <div class="prompt">快速記帳：例如「今天午餐 110 元」</div>
+    <section class="section"><div class="section-head"><h2>最近紀錄</h2><span class="muted">查看帳本</span></div><div class="entry"><span>午餐</span><span>− $110</span></div><div class="entry"><span>飲料</span><span>− $50</span></div></section>
+    <section class="section goal"><div class="section-head"><h2>英國看雪之旅</h2><span class="muted">12%</span></div><div class="bar"><div class="fill"></div></div></section>
+    <nav class="nav"><strong>首頁</strong><span>帳本</span><span>分析</span><span>設定</span></nav>`;
+</script>

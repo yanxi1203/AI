@@ -1,0 +1,97 @@
+<!doctype html>
+<html lang="zh-Hant">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>首頁 E／F 比較草稿</title>
+  <style>
+    /* PROTOTYPE：E 陪伴優先與 F 財務優先，切換比較。 */
+    :root { font-family:ui-sans-serif,system-ui,-apple-system,"Segoe UI",sans-serif; color:#29312c; background:#ececea; }
+    * { box-sizing:border-box; } body { margin:0; min-height:100vh; } button,input { font:inherit; }
+    h1,h2,h3,p { margin:0; }
+    .stage { min-height:100vh; padding:24px 16px 100px; }
+    .phone { position:relative; width:min(100%,390px); height:844px; margin:auto; overflow:hidden; border:2px solid #29312c; border-radius:34px; background:#fffdfa; }
+    .status { display:flex; align-items:center; justify-content:space-between; height:39px; padding:8px 28px 0; font-size:12px; }
+    .notch { width:118px; height:24px; margin-top:-8px; border-radius:0 0 14px 14px; background:#29312c; }
+    .screen { height:calc(100% - 39px); overflow-y:auto; padding-bottom:83px; scrollbar-width:none; }.screen::-webkit-scrollbar{display:none}
+    .variant { min-height:100%; }
+    .bottom-nav { position:absolute; right:0; bottom:0; left:0; z-index:4; display:grid; grid-template-columns:repeat(4,1fr); padding:12px 8px 27px; border-top:1px solid #dedfd9; background:rgba(255,253,250,.96); backdrop-filter:blur(10px); }
+    .bottom-nav button { border:0; background:transparent; color:#858985; font-size:11px; }.bottom-nav .active { color:#4f6658; font-weight:700; }
+    .switcher { position:fixed; bottom:18px; left:50%; z-index:20; display:grid; grid-template-columns:38px minmax(180px,auto) 38px; align-items:center; gap:8px; padding:8px; border-radius:999px; background:#202020; color:#fff; box-shadow:0 8px 28px rgba(0,0,0,.24); transform:translateX(-50%); }
+    .switcher button { width:36px; height:34px; border:1px solid #666; border-radius:999px; background:#333; color:#fff; }.switcher strong { text-align:center; font-size:12px; font-weight:500; }
+    .icon { width:18px; height:18px; fill:none; stroke:currentColor; stroke-width:1.8; stroke-linecap:round; stroke-linejoin:round; }
+    .mascot { position:relative; width:57px; height:47px; border:1.5px solid #5f6f65; border-radius:49% 46% 42% 48% / 50% 48% 44% 46%; background:#fffdfa; }
+    .mascot::before,.mascot::after { position:absolute; top:19px; width:4px; height:6px; border-radius:50%; background:#445149; content:""; }.mascot::before{left:19px}.mascot::after{right:19px}
+    .horn { position:absolute; top:-8px; left:-6px; width:29px; height:17px; border:1.5px solid #5f6f65; border-right:0; border-bottom:0; border-radius:90% 20% 0 20%; background:#fffdfa; transform:rotate(-10deg); }
+    .drop { position:absolute; top:-13px; left:-11px; width:8px; height:10px; border:1.5px solid #c88765; border-radius:55%; background:#d99c79; }
+
+    /* E：Fin 陪伴優先 */
+    .variant-e { background:#fffdfa; }
+    .e-hero { padding:15px 20px 24px; border-radius:0 0 30px 30px; background:linear-gradient(155deg,#eef2ec,#f6f1e7); }
+    .topline,.title { display:flex; align-items:center; justify-content:space-between; }.topline { color:#6f756f; font-size:12px; }
+    .round-button { width:32px; height:32px; display:grid; place-items:center; border:0; border-radius:50%; background:rgba(255,255,255,.74); color:#5f6f65; }
+    .e-companion { display:grid; grid-template-columns:62px 1fr; align-items:center; gap:13px; margin-top:15px; }
+    .e-copy strong { display:block; color:#617267; font-size:12px; }.e-copy h1 { margin-top:4px; font-size:19px; line-height:1.35; }.e-copy p { margin-top:5px; color:#68716b; font-size:11px; }
+    .e-balance { display:flex; align-items:flex-end; justify-content:space-between; margin-top:23px; }.e-balance span { color:#606861; font-size:12px; }.e-balance small { display:block; margin-top:3px; color:#7b817c; font-size:10px; }.e-balance strong { font-size:33px; letter-spacing:-1.3px; }
+    .e-content { padding:23px 20px 30px; }.title h2 { font-size:16px; }.title>span { color:#7d817d; font-size:11px; }
+    .record { display:grid; grid-template-columns:36px minmax(0,1fr) 38px; align-items:center; gap:9px; margin-top:12px; padding:7px 8px; border-radius:18px; background:#f1efe9; }
+    .record button { width:36px; height:36px; display:grid; place-items:center; border:0; border-radius:13px; background:#82968a; color:#fff; }.record button:last-child { background:#fffdfa; color:#64766b; }
+    .record input { min-width:0; border:0; outline:0; background:transparent; color:#29312c; font-size:12px; }
+    .feedback { display:flex; align-items:center; gap:7px; margin-top:10px; color:#677069; font-size:11px; }.feedback::before { width:7px; height:7px; border-radius:50%; background:#82968a; content:""; }
+    .reminders { margin-top:27px; }.count { padding:3px 8px; border-radius:99px; background:#eee7dc; color:#836b5f!important; }
+    .item,.transaction { display:grid; align-items:center; gap:11px; padding:11px 0; }.item { grid-template-columns:42px 1fr 18px; }.transaction { grid-template-columns:38px 1fr auto; }
+    .item-icon,.category { display:grid; place-items:center; border-radius:14px; background:#edf1ec; color:#64786c; }.item-icon { width:42px; height:42px; }.category { width:38px; height:38px; border-radius:13px; }
+    .item strong,.transaction strong { display:block; font-size:13px; }.item p,.transaction small { margin-top:3px; color:#737973; font-size:10px; }.chevron { color:#9a9d99; }
+    .tabs { display:flex; gap:24px; margin-top:23px; }.tabs button { padding:0 0 8px; border:0; border-bottom:2px solid transparent; background:transparent; color:#898b88; font-size:12px; }.tabs .selected { border-bottom-color:#82968a; color:#29312c; font-weight:700; }
+
+    /* F：財務資訊優先，Fin 退到輔助位置 */
+    .variant-f { position:relative; overflow:hidden; padding:15px 20px 30px; background:#fffdfa; }
+    .variant-f::before { position:absolute; top:-105px; right:-95px; width:250px; height:250px; border-radius:46% 54% 63% 37%; background:#e9eee7; content:""; }
+    .f-layer { position:relative; z-index:1; }
+    .f-topline { display:flex; align-items:center; justify-content:space-between; color:#747a75; font-size:12px; }
+    .f-fin { display:flex; align-items:center; gap:8px; color:#5f6f65; font-size:11px; }.f-fin .mascot { width:36px; height:30px; border-width:1.2px; }.f-fin .mascot::before,.f-fin .mascot::after { top:12px; width:3px; height:4px; }.f-fin .mascot::before{left:12px}.f-fin .mascot::after{right:12px}.f-fin .horn{top:-5px;left:-4px;width:19px;height:11px;border-width:1.2px}.f-fin .drop{display:none}
+    .f-summary { margin-top:31px; }.f-summary>span { color:#687069; font-size:12px; }.f-summary h1 { margin-top:5px; font-size:43px; line-height:1.05; letter-spacing:-2px; }.f-summary p { margin-top:9px; color:#777d78; font-size:11px; }
+    .progress { height:8px; margin-top:17px; overflow:hidden; border-radius:99px; background:#e6e4dd; }.progress i { display:block; width:68%; height:100%; border-radius:inherit; background:#82968a; }
+    .f-meta { display:flex; justify-content:space-between; margin-top:8px; color:#737a74; font-size:10px; }.f-meta b { color:#49574f; font-weight:650; }
+    .f-record-wrap { margin-top:27px; }.f-record-wrap h2,.f-section h2 { font-size:15px; }
+    .f-record { display:grid; grid-template-columns:1fr 40px; gap:8px; margin-top:11px; }.f-record label { display:flex; align-items:center; gap:9px; padding:12px 14px; border-radius:15px; background:#f1efe9; color:#777d78; font-size:12px; }.f-record input { min-width:0; flex:1; border:0; outline:0; background:transparent; }.f-record button { display:grid; place-items:center; border:0; border-radius:14px; background:#52685b; color:#fff; }
+    .f-note { display:grid; grid-template-columns:31px 1fr; gap:9px; margin-top:15px; padding:12px 14px; border-radius:16px; background:#f4eee5; }.f-note .mini-fin { width:29px; height:25px; display:grid; place-items:center; border-radius:45%; background:#d99c79; color:#fff; font-size:11px; }.f-note strong { display:block; color:#6d574d; font-size:11px; }.f-note p { margin-top:3px; color:#7c6d65; font-size:10px; line-height:1.45; }
+    .f-section { margin-top:27px; }.f-section .title a { color:#687a6f; font-size:10px; }
+    .f-row { display:grid; grid-template-columns:38px 1fr auto; align-items:center; gap:11px; padding:12px 0; }.f-row .category.bill { background:#f4e9df; color:#ad7054; }.f-row strong { display:block; font-size:12px; }.f-row small { color:#818580; font-size:10px; }.f-row b { font-size:12px; }
+    .goal-row { margin-top:25px; }.goal-heading { display:flex; align-items:center; justify-content:space-between; }.goal-heading h2 { font-size:15px; }.goal-heading span { color:#6c756f; font-size:11px; }.goal-progress { height:6px; margin-top:12px; overflow:hidden; border-radius:99px; background:#ebe9e2; }.goal-progress i { display:block; width:40%; height:100%; border-radius:inherit; background:#d49a78; }
+    @media(max-width:520px){.stage{padding-inline:6px}.phone{border-radius:20px}.switcher{bottom:7px}}
+  </style>
+</head>
+<body>
+  <main class="stage">
+    <section class="phone" aria-label="首頁 E 與 F 比較">
+      <div class="status"><span>9:41</span><i class="notch"></i><span>●●●</span></div>
+      <div id="screen" class="screen"></div>
+      <nav class="bottom-nav"><button class="active">首頁</button><button>帳本</button><button>分析</button><button>設定</button></nav>
+    </section>
+  </main>
+  <aside class="switcher"><button id="previous">←</button><strong id="label"></strong><button id="next">→</button></aside>
+  <script>
+    const paths = {
+      bell:'<path d="M18 8a6 6 0 0 0-12 0c0 7-3 7-3 9h18c0-2-3-2-3-9M10 21h4"/>',
+      plus:'<path d="M12 5v14M5 12h14"/>',
+      mic:'<path d="M12 15a4 4 0 0 0 4-4V7a4 4 0 0 0-8 0v4a4 4 0 0 0 4 4Z"/><path d="M5 11a7 7 0 0 0 14 0M12 18v3M9 21h6"/>',
+      bill:'<path d="M6 3h12v18l-3-2-3 2-3-2-3 2V3Z"/><path d="M9 8h6M9 12h6"/>',
+      goal:'<circle cx="12" cy="12" r="8"/><circle cx="12" cy="12" r="3"/><path d="m15 9 5-5"/>',
+      next:'<path d="m9 6 6 6-6 6"/>',
+      food:'<path d="M7 3v8M4 3v5a3 3 0 0 0 6 0V3M7 11v10M17 3v18M17 3c-3 2-3 7 0 9"/>',
+      book:'<path d="M4 5a3 3 0 0 1 3-2h5v17H7a3 3 0 0 0-3 2V5Z"/><path d="M20 5a3 3 0 0 0-3-2h-5v17h5a3 3 0 0 1 3 2V5Z"/>'
+    };
+    const icon = name => `<svg class="icon" viewBox="0 0 24 24" aria-hidden="true">${paths[name]}</svg>`;
+    const mascot = '<span class="mascot"><i class="horn"></i><i class="drop"></i></span>';
+    const variants = {
+      E:{name:'陪伴優先',html:`<section class="variant variant-e"><header class="e-hero"><div class="topline"><span>8 月 17 日，星期一</span><button class="round-button">${icon('bell')}</button></div><div class="e-companion">${mascot}<div class="e-copy"><strong>Fin 在這裡</strong><h1>今天的錢，我幫你一起看著。</h1><p>照目前速度，這個月還算穩定。</p></div></div><div class="e-balance"><span>本月還可以使用<small>距離月底還有 14 天</small></span><strong>$6,420</strong></div></header><div class="e-content"><div class="title"><h2>快速記帳</h2><span>打字或直接說</span></div><div class="record"><button>${icon('plus')}</button><input placeholder="例如：午餐 110 元"><button>${icon('mic')}</button></div><p class="feedback">Fin 已記下：小說 $290 · 娛樂</p><section class="reminders"><div class="title"><h2>今天需要留意</h2><span class="count">2</span></div><article class="item"><span class="item-icon">${icon('bill')}</span><div><strong>網路費還沒確認</strong><p>$599 · 今天到期</p></div><span class="chevron">${icon('next')}</span></article><article class="item"><span class="item-icon">${icon('goal')}</span><div><strong>英國看雪之旅</strong><p>本月目標還差 $2,000</p></div><span class="chevron">${icon('next')}</span></article></section><div class="tabs"><button class="selected">最近紀錄</button><button>夢想目標</button></div><article class="transaction"><span class="category">${icon('food')}</span><div><strong>午餐</strong><small>今天 · 飲食</small></div><b>− $110</b></article></div></section>`},
+      F:{name:'財務優先',html:`<section class="variant variant-f"><div class="f-layer"><div class="f-topline"><span>8 月 17 日，星期一</span><span class="f-fin">${mascot}<b>Fin 幫你看著</b></span></div><section class="f-summary"><span>本月還可以使用</span><h1>$6,420</h1><p>距離月底還有 14 天，今天建議使用 $458</p><div class="progress"><i></i></div><div class="f-meta"><span>本月已使用 <b>$13,580</b></span><span>預算 $20,000</span></div></section><section class="f-record-wrap"><h2>快速記帳</h2><div class="f-record"><label>${icon('plus')}<input placeholder="午餐 110 元"></label><button>${icon('mic')}</button></div><div class="f-note"><span class="mini-fin">Fin</span><div><strong>今天還算穩定</strong><p>網路費 $599 尚未確認，記得在今晚前看看。</p></div></div></section><section class="f-section"><div class="title"><h2>最近紀錄</h2><a>查看全部</a></div><article class="f-row"><span class="category">${icon('food')}</span><div><strong>午餐</strong><small>今天 · 飲食</small></div><b>− $110</b></article><article class="f-row"><span class="category">${icon('book')}</span><div><strong>小說</strong><small>今天 · 娛樂</small></div><b>− $290</b></article><article class="f-row"><span class="category bill">${icon('bill')}</span><div><strong>網路費</strong><small>待確認 · 今天到期</small></div><b>$599</b></article></section><section class="goal-row"><div class="goal-heading"><h2>英國看雪之旅</h2><span>40%</span></div><div class="goal-progress"><i></i></div></section></div></section>`}
+    };
+    const keys = Object.keys(variants); const params = new URLSearchParams(location.search); let current = keys.includes(params.get('variant'))?params.get('variant'):'E';
+    function render(){document.querySelector('#screen').innerHTML=variants[current].html;document.querySelector('#label').textContent=`${current} — ${variants[current].name}`;const url=new URL(location.href);url.searchParams.set('variant',current);history.replaceState({},'',url);document.querySelector('#screen').scrollTop=0}
+    function cycle(step){current=keys[(keys.indexOf(current)+step+keys.length)%keys.length];render()}
+    document.querySelector('#previous').onclick=()=>cycle(-1);document.querySelector('#next').onclick=()=>cycle(1);addEventListener('keydown',event=>{if(event.target.matches('input,textarea,[contenteditable]'))return;if(event.key==='ArrowLeft')cycle(-1);if(event.key==='ArrowRight')cycle(1)});render();
+  </script>
+</body>
+</html>

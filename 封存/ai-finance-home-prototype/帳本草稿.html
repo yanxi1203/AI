@@ -1,0 +1,108 @@
+<!-- PROTOTYPE: Three iPhone 14 ledger structures, switchable with ?variant=A|B|C. -->
+<main class="app-shell" aria-label="AI 財務管家帳本頁架構草稿">
+  <section id="screen" class="phone" aria-live="polite"></section>
+  <div class="prototype-switcher" aria-label="帳本草稿版本切換">
+    <button id="previous" type="button" aria-label="上一個版本">←</button>
+    <span id="variant-name"></span>
+    <button id="next" type="button" aria-label="下一個版本">→</button>
+  </div>
+</main>
+
+<style>
+  :root { font-family: ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; color: #202020; background: #ececec; }
+  * { box-sizing: border-box; }
+  body { margin: 0; min-height: 100vh; }
+  .app-shell { min-height: 100vh; padding: 24px 16px 96px; }
+  .phone { width: min(100%, 390px); min-height: 844px; margin: 0 auto; overflow: hidden; border: 2px solid #202020; border-radius: 34px; background: #fff; }
+  .ios-status { display: flex; align-items: center; justify-content: space-between; height: 39px; padding: 8px 28px 0; font-size: 12px; font-weight: 500; }
+  .ios-notch { width: 118px; height: 24px; margin-top: -8px; border-radius: 0 0 14px 14px; background: #202020; }
+  .top { padding: 14px 22px 18px; }
+  .date, .muted { color: #666; font-size: 12px; }
+  h1, h2, h3, p { margin: 0; }
+  h1 { margin-top: 7px; font-size: 23px; font-weight: 500; letter-spacing: -.4px; }
+  h2 { font-size: 15px; font-weight: 500; }
+  h3 { font-size: 14px; font-weight: 500; }
+  .summary { display: grid; grid-template-columns: 1fr 1fr; margin: 0 16px; border: 1.5px solid #202020; border-radius: 15px; }
+  .summary > div { display: grid; gap: 6px; padding: 15px; }
+  .summary > div + div { border-left: 1px solid #9a9a9a; }
+  .summary strong { font-size: 18px; font-weight: 500; }
+  .search { margin: 16px; padding: 12px 14px; border: 1px solid #777; border-radius: 11px; color: #666; font-size: 14px; }
+  .filters { display: flex; gap: 8px; padding: 10px 22px 4px; }
+  .filters button { padding: 8px 13px; border: 1px solid #777; border-radius: 999px; background: #fff; color: #202020; font: inherit; font-size: 13px; }
+  .filters .selected { border-color: #202020; background: #202020; color: #fff; }
+  .view-tabs { display: flex; gap: 8px; padding: 0 22px 5px; }
+  .view-tabs button { flex: 1; padding: 9px 4px; border: 1px solid #777; border-radius: 8px; background: #fff; color: #202020; font: inherit; font-size: 12px; }
+  .view-tabs button.selected { border-color: #202020; background: #202020; color: #fff; }
+  .ledger-section { padding: 17px 22px 0; }
+  .section-head { display: flex; justify-content: space-between; align-items: baseline; margin-bottom: 5px; }
+  .entry { display: flex; align-items: center; justify-content: space-between; padding: 12px 0; border-top: 1px solid #d3d3d3; font-size: 14px; }
+  .entry div { display: grid; gap: 3px; }
+  .entry strong { font-weight: 500; }
+  .quick-log { margin: 17px 22px 0; padding: 12px; border: 1px solid #202020; border-radius: 9px; text-align: center; font-size: 14px; }
+  .month-strip { display: flex; justify-content: space-between; padding: 0 22px 15px; font-size: 14px; }
+  .month-strip button { border: 0; background: transparent; font: inherit; font-size: 17px; }
+  .day-grid { display: grid; grid-template-columns: repeat(7, 1fr); gap: 4px; padding: 0 18px; text-align: center; font-size: 12px; }
+  .day-grid span { padding: 8px 0; }
+  .day-grid .active { border-radius: 50%; background: #202020; color: #fff; }
+  .day-grid .has-record { text-decoration: underline; text-underline-offset: 4px; }
+  .day-grid .empty-day { visibility: hidden; }
+  .selected-day { margin: 18px 16px 0; padding: 15px; border: 1.5px solid #202020; border-radius: 15px; }
+  .selected-day p { margin-top: 5px; font-size: 13px; line-height: 1.45; }
+  .category-summary { display: grid; gap: 10px; padding: 0 22px; }
+  .category-row { display: grid; grid-template-columns: 78px 1fr auto; align-items: center; gap: 10px; font-size: 13px; }
+  .track { height: 6px; overflow: hidden; border-radius: 4px; background: #dedede; }
+  .track span { display: block; height: 100%; background: #202020; }
+  .insight { margin: 16px; padding: 15px; border: 1.5px solid #202020; border-radius: 15px; font-size: 14px; line-height: 1.5; }
+  .insight strong { display: block; margin-bottom: 5px; font-weight: 500; }
+  .nav { display: flex; justify-content: space-around; margin-top: 16px; padding: 14px 8px 28px; border-top: 1px solid #d3d3d3; color: #666; font-size: 11px; }
+  .nav strong { color: #202020; font-weight: 500; }
+  .prototype-switcher { position: fixed; bottom: 18px; left: 50%; display: flex; align-items: center; gap: 10px; min-width: 250px; justify-content: space-between; transform: translateX(-50%); padding: 9px 11px; border-radius: 999px; background: #202020; color: #fff; box-shadow: 0 5px 18px rgba(0,0,0,.2); font-size: 13px; }
+  .prototype-switcher button { width: 30px; height: 30px; border: 1px solid #fff; border-radius: 50%; background: transparent; color: #fff; font-size: 16px; cursor: pointer; }
+  @media (max-width: 360px) { .app-shell { padding-inline: 8px; } .phone { border-radius: 18px; } }
+</style>
+
+<script>
+  const shell = (content) => `<div class="ios-status"><span>9:41</span><span class="ios-notch" aria-hidden="true"></span><span>●●●</span></div>${content}<nav class="nav"><span>首頁</span><strong>帳本</strong><span>分析</span><span>設定</span></nav>`;
+  const variants = {
+    A: {
+      name: 'A — 日期流水帳',
+      render: () => shell(`
+        <header class="top"><div class="date">帳本</div><h1>這個月的每一筆。</h1></header>
+        <section class="summary"><div><span class="muted">8 月支出</span><strong>$ 8,580</strong></div><div><span class="muted">收入</span><strong>+ $ 12,000</strong></div></section>
+        <div class="search">搜尋項目、金額或日期</div><div class="filters"><button class="selected">全部</button><button>支出</button><button>收入</button></div>
+        <section class="ledger-section"><div class="section-head"><h2>今天</h2><span class="muted">8 月 17 日</span></div><article class="entry"><div><strong>午餐</strong><span class="muted">飲食</span></div><span>− $110</span></article><article class="entry"><div><strong>飲料</strong><span class="muted">飲食</span></div><span>− $50</span></article></section>
+        <section class="ledger-section"><div class="section-head"><h2>昨天</h2><span class="muted">8 月 16 日</span></div><article class="entry"><div><strong>捷運</strong><span class="muted">交通</span></div><span>− $45</span></article><article class="entry"><div><strong>打工收入</strong><span class="muted">收入</span></div><span>+ $2,000</span></article></section><div class="quick-log">＋ 快速記一筆</div>`)
+    },
+    B: {
+      name: 'B — 月曆回顧',
+      render: () => shell(`
+        <header class="top"><div class="date">帳本</div><h1>8 月的花費足跡。</h1></header>
+        <div class="month-strip"><button>‹</button><strong>2026 年 8 月</strong><button>›</button></div>
+        <div class="day-grid" aria-label="8 月月曆"><span>日</span><span>一</span><span>二</span><span>三</span><span>四</span><span>五</span><span>六</span><span>10</span><span>11</span><span class="has-record">12</span><span>13</span><span class="has-record">14</span><span>15</span><span class="has-record">16</span><span class="active">17</span><span>18</span><span>19</span><span>20</span><span>21</span><span>22</span><span>23</span></div>
+        <section class="selected-day"><h2>8 月 17 日 · 今天</h2><p>你今天已花 $160，主要是飲食。還有 $6,420 可以使用。</p><article class="entry"><div><strong>午餐</strong><span class="muted">飲食</span></div><span>− $110</span></article><article class="entry"><div><strong>飲料</strong><span class="muted">飲食</span></div><span>− $50</span></article></section>
+        <div class="quick-log">＋ 為今天新增一筆</div>`)
+    },
+    C: {
+      name: 'C — 整合帳本（建議）',
+      render: () => shell(`
+        <header class="top"><div class="date">帳本</div><h1>你想怎麼查看這個月？</h1></header>
+        <div class="view-tabs" aria-label="帳本檢視方式"><button type="button" data-view="overview" class="selected">總覽</button><button type="button" data-view="calendar">月曆</button><button type="button" data-view="stream">流水帳</button></div>
+        <div id="combined-detail"></div>`)
+    }
+  };
+  const combinedViews = {
+    overview: `<section class="summary"><div><span class="muted">8 月支出</span><strong>$ 8,580</strong></div><div><span class="muted">剩餘額度</span><strong>$ 6,420</strong></div></section><section class="ledger-section"><div class="section-head"><h2>本月支出分類</h2><span class="muted">查看明細</span></div></section><div class="category-summary"><div class="category-row"><span>飲食</span><div class="track"><span style="width:72%"></span></div><strong>$3,200</strong></div><div class="category-row"><span>娛樂</span><div class="track"><span style="width:48%"></span></div><strong>$2,100</strong></div><div class="category-row"><span>交通</span><div class="track"><span style="width:28%"></span></div><strong>$1,200</strong></div></div><section class="insight"><strong>AI 管家觀察</strong>這週飲食花費比平常多了約 $400。</section><section class="ledger-section"><div class="section-head"><h2>最近紀錄</h2><span class="muted">全部紀錄</span></div><article class="entry"><div><strong>午餐</strong><span class="muted">飲食</span></div><span>− $110</span></article><article class="entry"><div><strong>飲料</strong><span class="muted">飲食</span></div><span>− $50</span></article></section><div class="quick-log">＋ 快速記一筆</div>`,
+    calendar: `<div class="month-strip"><button>‹</button><strong>2026 年 8 月</strong><button>›</button></div><div class="day-grid" aria-label="2026 年 8 月月曆"><span>日</span><span>一</span><span>二</span><span>三</span><span>四</span><span>五</span><span>六</span><span class="empty-day"> </span><span class="empty-day"> </span><span class="empty-day"> </span><span class="empty-day"> </span><span class="empty-day"> </span><span class="empty-day"> </span><span>1</span><span>2</span><span>3</span><span>4</span><span>5</span><span>6</span><span>7</span><span>8</span><span>9</span><span>10</span><span>11</span><span class="has-record">12</span><span>13</span><span class="has-record">14</span><span>15</span><span class="has-record">16</span><span class="active">17</span><span>18</span><span>19</span><span>20</span><span>21</span><span>22</span><span>23</span><span>24</span><span>25</span><span>26</span><span>27</span><span>28</span><span>29</span><span>30</span><span>31</span></div><section class="selected-day"><h2>8 月 17 日 · 今天</h2><p>今天已花 $160，主要是飲食。</p><article class="entry"><div><strong>午餐</strong><span class="muted">飲食</span></div><span>− $110</span></article><article class="entry"><div><strong>飲料</strong><span class="muted">飲食</span></div><span>− $50</span></article></section><div class="quick-log">＋ 為今天新增一筆</div>`,
+    stream: `<div class="search">搜尋項目、金額或日期</div><div class="filters"><button class="selected">全部</button><button>支出</button><button>收入</button></div><section class="ledger-section"><div class="section-head"><h2>今天</h2><span class="muted">8 月 17 日</span></div><article class="entry"><div><strong>午餐</strong><span class="muted">飲食</span></div><span>− $110</span></article><article class="entry"><div><strong>飲料</strong><span class="muted">飲食</span></div><span>− $50</span></article></section><section class="ledger-section"><div class="section-head"><h2>昨天</h2><span class="muted">8 月 16 日</span></div><article class="entry"><div><strong>捷運</strong><span class="muted">交通</span></div><span>− $45</span></article><article class="entry"><div><strong>打工收入</strong><span class="muted">收入</span></div><span>+ $2,000</span></article></section>`
+  };
+  const keys = Object.keys(variants);
+  let current = new URLSearchParams(location.search).get('variant') || 'C';
+  if (!variants[current]) current = 'A';
+  const renderCombined = (view) => { document.querySelector('#combined-detail').innerHTML = combinedViews[view]; document.querySelectorAll('[data-view]').forEach(button => button.classList.toggle('selected', button.dataset.view === view)); document.querySelector('#screen').scrollTop = 0; };
+  const render = () => { document.querySelector('#screen').innerHTML = variants[current].render(); document.querySelector('#variant-name').textContent = variants[current].name; history.replaceState(null, '', `?variant=${current}`); if (current === 'C') { renderCombined('overview'); document.querySelectorAll('[data-view]').forEach(button => button.addEventListener('click', () => renderCombined(button.dataset.view))); } };
+  const move = (delta) => { current = keys[(keys.indexOf(current) + delta + keys.length) % keys.length]; render(); };
+  document.querySelector('#previous').addEventListener('click', () => move(-1));
+  document.querySelector('#next').addEventListener('click', () => move(1));
+  document.addEventListener('keydown', (event) => { if (!['INPUT', 'TEXTAREA'].includes(document.activeElement.tagName)) { if (event.key === 'ArrowLeft') move(-1); if (event.key === 'ArrowRight') move(1); } });
+  render();
+</script>

@@ -1,0 +1,291 @@
+<!doctype html>
+<html lang="zh-Hant">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>首頁減框款式草稿</title>
+</head>
+<body>
+  <!-- PROTOTYPE ONLY: Five home-page variants, switchable via ?variant=A/B/C/D/E. -->
+  <main class="stage">
+    <section class="phone" aria-label="AI 財務管家首頁款式比較">
+      <div class="ios-status"><span>9:41</span><span class="ios-notch" aria-hidden="true"></span><span>●●●</span></div>
+      <div id="screen" class="screen"></div>
+      <nav class="bottom-nav" aria-label="主要導覽">
+        <button class="active">首頁</button><button>帳本</button><button>分析</button><button>設定</button>
+      </nav>
+    </section>
+  </main>
+  <aside class="prototype-switcher" aria-label="草稿款式切換">
+    <button id="previous-variant" aria-label="上一款">←</button>
+    <strong id="variant-label"></strong>
+    <button id="next-variant" aria-label="下一款">→</button>
+  </aside>
+
+  <style>
+    :root { font-family: ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; color:#202020; background:#ececea; }
+    * { box-sizing:border-box; }
+    body { margin:0; min-height:100vh; }
+    button, input { font:inherit; }
+    .stage { min-height:100vh; padding:24px 16px 100px; }
+    .phone { position:relative; width:min(100%,390px); height:844px; margin:0 auto; overflow:hidden; border:2px solid #202020; border-radius:34px; background:#fff; }
+    .ios-status { display:flex; align-items:center; justify-content:space-between; height:39px; padding:8px 28px 0; font-size:12px; font-weight:500; }
+    .ios-notch { width:118px; height:24px; margin-top:-8px; border-radius:0 0 14px 14px; background:#202020; }
+    .screen { height:calc(100% - 39px); overflow-y:auto; padding-bottom:86px; scrollbar-width:none; }
+    .screen::-webkit-scrollbar { display:none; }
+    h1,h2,h3,p { margin:0; }
+    .muted { color:#686868; font-size:12px; }
+    .bottom-nav { position:absolute; right:0; bottom:0; left:0; display:grid; grid-template-columns:repeat(4,1fr); padding:13px 8px 28px; border-top:1px solid #d6d6d2; background:rgba(255,255,255,.96); }
+    .bottom-nav button { border:0; background:transparent; color:#777; font-size:11px; }
+    .bottom-nav .active { color:#202020; font-weight:600; }
+    .prototype-switcher { position:fixed; bottom:18px; left:50%; z-index:20; display:grid; grid-template-columns:38px minmax(170px,auto) 38px; align-items:center; gap:8px; padding:8px; border-radius:999px; background:#202020; color:#fff; box-shadow:0 8px 28px rgba(0,0,0,.24); transform:translateX(-50%); }
+    .prototype-switcher button { width:36px; height:34px; border:1px solid #666; border-radius:999px; background:#333; color:#fff; }
+    .prototype-switcher strong { text-align:center; font-size:12px; font-weight:500; }
+    .variant { min-height:100%; }
+
+    /* A — soft surface */
+    .variant-a { padding:14px 18px 28px; }
+    .a-head .date { color:#6b6b68; font-size:12px; }
+    .a-head h1 { margin-top:7px; font-size:23px; font-weight:500; letter-spacing:-.4px; }
+    .a-card { margin-top:18px; padding:20px; border-radius:20px; background:#f1efe9; }
+    .a-card small { font-size:12px; }
+    .a-card .money { margin-top:8px; font-size:34px; font-weight:550; letter-spacing:-1px; }
+    .a-card p { margin-top:8px; color:#666; font-size:13px; line-height:1.5; }
+    .a-talk { margin-top:22px; }
+    .a-talk label { display:block; margin-bottom:9px; font-size:13px; font-weight:600; }
+    .input-row { display:grid; grid-template-columns:minmax(0,1fr) 40px 50px; gap:7px; }
+    .input-row input { min-width:0; padding:11px 12px; border:1px solid #777; border-radius:10px; background:#fff; font-size:12px; }
+    .input-row button { border:1px solid #202020; border-radius:10px; background:#fff; font-size:12px; }
+    .input-row .send { background:#202020; color:#fff; }
+    .a-reply { margin-top:12px; color:#555; font-size:13px; line-height:1.5; }
+    .a-title { display:flex; justify-content:space-between; margin-top:24px; font-size:14px; }
+    .a-todo { margin-top:8px; }
+    .a-todo article { display:grid; grid-template-columns:16px 1fr; gap:10px; padding:11px 0; border-top:1px solid #ddd; }
+    .a-dot { width:8px; height:8px; margin-top:5px; border:1.5px solid #202020; border-radius:50%; }
+    .a-todo h3 { font-size:13px; font-weight:600; }
+    .a-todo p { margin-top:3px; color:#666; font-size:12px; }
+    .text-tabs { display:grid; grid-template-columns:1fr 1fr; margin-top:15px; border-bottom:1px solid #d4d4d0; }
+    .text-tabs button { padding:10px 4px; border:0; border-bottom:2px solid transparent; background:transparent; color:#777; font-size:12px; }
+    .text-tabs .selected { border-bottom-color:#202020; color:#202020; font-weight:600; }
+
+    /* B — editorial ledger */
+    .variant-b { padding:15px 23px 28px; }
+    .b-kicker { display:flex; justify-content:space-between; color:#666; font-size:11px; letter-spacing:.08em; text-transform:uppercase; }
+    .b-head { padding:28px 0 25px; border-bottom:1px solid #202020; }
+    .b-head h1 { font-size:15px; font-weight:500; }
+    .b-money { margin-top:7px; font-family:Georgia, "Times New Roman", serif; font-size:48px; line-height:1; letter-spacing:-2px; }
+    .b-meta { display:flex; gap:16px; margin-top:14px; color:#60605d; font-size:12px; }
+    .b-section { padding:22px 0 4px; }
+    .b-number { display:block; margin-bottom:8px; color:#888; font-family:Georgia,serif; font-size:12px; }
+    .b-section h2 { font-family:Georgia, "Times New Roman", serif; font-size:19px; font-weight:400; }
+    .b-input { display:grid; grid-template-columns:1fr auto; align-items:center; margin-top:14px; padding:9px 0; border-bottom:1px solid #202020; }
+    .b-input input { min-width:0; padding:6px 0; border:0; outline:0; font-size:13px; }
+    .b-input button { padding:7px 10px; border:0; background:#202020; color:#fff; font-size:11px; }
+    .b-reply { padding:13px 0 2px; color:#555; font-size:12px; }
+    .b-task { display:grid; grid-template-columns:32px 1fr auto; gap:9px; padding:14px 0; border-top:1px solid #deded9; font-size:13px; }
+    .b-task .index { color:#999; font-family:Georgia,serif; }
+    .b-task p { margin-top:3px; color:#6b6b68; font-size:11px; }
+    .b-task time { color:#666; font-size:11px; }
+    .b-tabs { display:flex; gap:24px; margin-top:22px; font-family:Georgia,serif; font-size:14px; }
+    .b-tabs span:first-child { text-decoration:underline; text-underline-offset:6px; }
+
+    /* C — companion flow */
+    .variant-c { padding:16px 20px 28px; background:linear-gradient(180deg,#f5f2eb 0 250px,#fff 250px); }
+    .c-date { color:#6a6863; font-size:12px; }
+    .companion-hero { display:grid; grid-template-columns:84px 1fr; align-items:center; gap:15px; padding:25px 0 20px; }
+    .companion-copy strong { display:block; font-size:14px; }
+    .companion-copy h1 { margin-top:6px; font-size:21px; font-weight:500; line-height:1.35; }
+    .companion-copy p { margin-top:7px; color:#67645f; font-size:12px; line-height:1.5; }
+    .mascot { position:relative; width:70px; height:58px; border:2px solid #202020; border-radius:49% 46% 42% 48% / 50% 48% 44% 46%; background:#fff; }
+    .mascot::before,.mascot::after { position:absolute; top:24px; width:5px; height:7px; border-radius:50%; background:#202020; content:""; }
+    .mascot::before { left:24px; }.mascot::after { right:24px; }
+    .mascot-horn { position:absolute; top:-9px; left:-7px; width:35px; height:20px; border:2px solid #202020; border-right:0; border-bottom:0; border-radius:90% 20% 0 20%; background:#fff; transform:rotate(-10deg); }
+    .mascot-drop { position:absolute; top:-15px; left:-13px; width:9px; height:12px; border:1.5px solid #202020; border-radius:55% 55% 60% 60%; background:#fff; }
+    .c-wallet { display:flex; align-items:flex-end; justify-content:space-between; padding:17px 0; border-top:1px solid #aaa69f; border-bottom:1px solid #aaa69f; }
+    .c-wallet span { font-size:12px; }.c-wallet strong { font-size:29px; font-weight:500; }
+    .c-talk { padding:20px 0 18px; }
+    .c-talk h2 { font-size:14px; font-weight:600; }
+    .c-talk p { margin-top:5px; color:#666; font-size:12px; }
+    .c-talk .input-row { margin-top:11px; }
+    .c-fin-line { margin-top:11px; padding-left:12px; border-left:2px solid #bbb6ad; color:#555; font-size:12px; line-height:1.55; }
+    .c-todo-title { margin-top:6px; font-size:15px; }
+    .c-task { position:relative; padding:13px 0 13px 22px; border-bottom:1px solid #e0ded8; }
+    .c-task::before { position:absolute; top:18px; left:2px; width:8px; height:8px; border-radius:50%; background:#202020; content:""; }
+    .c-task strong { font-size:13px; }.c-task p { margin-top:4px; color:#68655f; font-size:11px; }
+
+    /* D — editorial + companion */
+    .variant-d { padding:0; }
+    .d-companion-top { padding:16px 20px 0; background:#f5f2eb; }
+    .d-editorial-body { padding:0 23px 28px; }
+
+    /* E — familiar finance app + quiet companion */
+    .variant-e { min-height:100%; background:#fffdfa; color:#29312c; }
+    .e-hero { padding:15px 20px 24px; border-radius:0 0 30px 30px; background:linear-gradient(155deg,#eef2ec 0%,#f6f1e7 100%); }
+    .e-topline { display:flex; align-items:center; justify-content:space-between; color:#6f756f; font-size:12px; }
+    .e-bell { width:32px; height:32px; display:grid; place-items:center; border:0; border-radius:50%; background:rgba(255,255,255,.72); color:#5f6f65; }
+    .e-companion { display:grid; grid-template-columns:62px 1fr; align-items:center; gap:13px; margin-top:15px; }
+    .e-companion .mascot { width:57px; height:47px; border-color:#5f6f65; border-width:1.5px; }
+    .e-companion .mascot::before,.e-companion .mascot::after { top:19px; width:4px; height:6px; background:#445149; }
+    .e-companion .mascot::before { left:19px; }.e-companion .mascot::after { right:19px; }
+    .e-companion .mascot-horn { top:-8px; left:-6px; width:29px; height:17px; border-color:#5f6f65; border-width:1.5px; }
+    .e-companion .mascot-drop { top:-13px; left:-11px; width:8px; height:10px; border-color:#c88765; background:#d99c79; }
+    .e-copy strong { display:block; color:#617267; font-size:12px; }
+    .e-copy h1 { margin-top:4px; font-size:19px; font-weight:600; line-height:1.35; }
+    .e-copy p { margin-top:5px; color:#68716b; font-size:11px; }
+    .e-balance { display:flex; align-items:flex-end; justify-content:space-between; margin-top:23px; }
+    .e-balance span { color:#606861; font-size:12px; line-height:1.5; }
+    .e-balance strong { font-size:33px; font-weight:650; letter-spacing:-1.3px; }
+    .e-balance small { display:block; margin-top:2px; color:#7b817c; font-size:10px; }
+    .e-content { padding:23px 20px 30px; }
+    .e-title { display:flex; align-items:center; justify-content:space-between; }
+    .e-title h2 { font-size:16px; font-weight:650; }
+    .e-title span { color:#7d817d; font-size:11px; }
+    .e-record { display:grid; grid-template-columns:36px minmax(0,1fr) 38px; align-items:center; gap:9px; margin-top:12px; padding:7px 8px; border-radius:18px; background:#f1efe9; }
+    .e-record-icon,.e-record-mic { width:36px; height:36px; display:grid; place-items:center; border:0; border-radius:13px; }
+    .e-record-icon { background:#82968a; color:#fff; }.e-record-mic { background:#fffdfa; color:#64766b; }
+    .e-record input { min-width:0; border:0; outline:0; background:transparent; color:#29312c; font-size:12px; }
+    .e-feedback { display:flex; align-items:center; gap:7px; margin-top:10px; color:#677069; font-size:11px; }
+    .e-feedback::before { width:7px; height:7px; border-radius:50%; background:#82968a; content:""; }
+    .e-reminders { margin-top:27px; }
+    .e-count { min-width:22px; padding:3px 7px; border-radius:999px; background:#eee7dc; color:#836b5f!important; text-align:center; }
+    .e-item { display:grid; grid-template-columns:42px minmax(0,1fr) 18px; align-items:center; gap:11px; padding:11px 0; }
+    .e-item-icon,.e-category { display:grid; place-items:center; border-radius:14px; background:#edf1ec; color:#64786c; }
+    .e-item-icon { width:42px; height:42px; }.e-item:nth-of-type(3) .e-item-icon { background:#f5e9df; color:#ad7054; }
+    .e-item strong { display:block; font-size:13px; }.e-item p { margin-top:4px; color:#737973; font-size:11px; }
+    .e-chevron { color:#9a9d99; }
+    .e-text-tabs { display:flex; gap:24px; margin-top:24px; }
+    .e-text-tabs button { padding:0 0 8px; border:0; border-bottom:2px solid transparent; background:transparent; color:#898b88; font-size:12px; }
+    .e-text-tabs .selected { border-bottom-color:#82968a; color:#29312c; font-weight:650; }
+    .e-transaction { display:grid; grid-template-columns:38px 1fr auto; align-items:center; gap:10px; padding:12px 0; }
+    .e-category { width:38px; height:38px; border-radius:13px; }
+    .e-transaction strong { display:block; font-size:12px; }.e-transaction small { color:#848783; font-size:10px; }
+    .e-transaction b { font-size:12px; font-weight:600; }
+    .e-icon { width:18px; height:18px; fill:none; stroke:currentColor; stroke-width:1.8; stroke-linecap:round; stroke-linejoin:round; }
+    @media (max-width:520px) { .stage { padding-inline:6px; }.phone { border-radius:20px; }.prototype-switcher { bottom:7px; } }
+  </style>
+
+  <script>
+    const commonInput = '<div class="input-row"><input placeholder="例如：今天午餐花了 110 元"><button aria-label="語音">🎙</button><button class="send">送出</button></div>';
+    const eIcons = {
+      bell: '<svg class="e-icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M18 8a6 6 0 0 0-12 0c0 7-3 7-3 9h18c0-2-3-2-3-9M10 21h4"/></svg>',
+      plus: '<svg class="e-icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 5v14M5 12h14"/></svg>',
+      mic: '<svg class="e-icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 15a4 4 0 0 0 4-4V7a4 4 0 0 0-8 0v4a4 4 0 0 0 4 4Z"/><path d="M5 11a7 7 0 0 0 14 0M12 18v3M9 21h6"/></svg>',
+      bill: '<svg class="e-icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M6 3h12v18l-3-2-3 2-3-2-3 2V3Z"/><path d="M9 8h6M9 12h6"/></svg>',
+      goal: '<svg class="e-icon" viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="8"/><circle cx="12" cy="12" r="3"/><path d="m15 9 5-5"/></svg>',
+      chevron: '<svg class="e-icon" viewBox="0 0 24 24" aria-hidden="true"><path d="m9 6 6 6-6 6"/></svg>',
+      food: '<svg class="e-icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M7 3v8M4 3v5a3 3 0 0 0 6 0V3M7 11v10M17 3v18M17 3c-3 2-3 7 0 9"/></svg>',
+      book: '<svg class="e-icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M4 5a3 3 0 0 1 3-2h5v17H7a3 3 0 0 0-3 2V5Z"/><path d="M20 5a3 3 0 0 0-3-2h-5v17h5a3 3 0 0 1 3 2V5Z"/></svg>'
+    };
+    const variants = {
+      A: {
+        name: '柔和區塊',
+        html: `
+          <section class="variant variant-a">
+            <header class="a-head"><div class="date">8 月 17 日，星期一</div><h1>Fin 今天幫你整理好了。</h1></header>
+            <section class="a-card"><small>本月還可使用</small><div class="money">$6,420</div><p>距離月底 14 天 · 今天建議可使用 $458<br>照目前速度，這個月還算穩定。</p></section>
+            <section class="a-talk"><label>輸入或按麥克風跟 Fin 說</label>${commonInput}<p class="a-reply">Fin：小說 $290 已經記下來了。</p></section>
+            <div class="a-title"><strong>今天的財務待辦</strong><span class="muted">2 件</span></div>
+            <div class="a-todo"><article><span class="a-dot"></span><div><h3>確認網路費</h3><p>本月 $599 尚未看到繳費紀錄。</p></div></article><article><span class="a-dot"></span><div><h3>英國看雪之旅</h3><p>離本月存錢目標還差 $2,000。</p></div></article></div>
+            <div class="text-tabs"><button class="selected">最近紀錄</button><button>夢想目標</button></div>
+          </section>`
+      },
+      B: {
+        name: '記事本',
+        html: `
+          <section class="variant variant-b">
+            <div class="b-kicker"><span>August 17</span><span>Fin · Finance note</span></div>
+            <header class="b-head"><h1>本月還可使用</h1><div class="b-money">$6,420</div><div class="b-meta"><span>距離月底 14 天</span><span>今日建議 $458</span></div></header>
+            <section class="b-section"><span class="b-number">01</span><h2>跟 Fin 說今天花了什麼</h2><div class="b-input"><input placeholder="午餐 110、飲料 50"><button>送出</button></div><p class="b-reply">Fin / 小說 $290 已記下來 · 娛樂</p></section>
+            <section class="b-section"><span class="b-number">02</span><h2>今天需要留意</h2></section>
+            <article class="b-task"><span class="index">01</span><div><strong>確認網路費</strong><p>尚未看到 $599 的繳費紀錄</p></div><time>今天</time></article>
+            <article class="b-task"><span class="index">02</span><div><strong>英國看雪之旅</strong><p>本月還差 $2,000</p></div><time>本月</time></article>
+            <div class="b-tabs"><span>最近紀錄</span><span>夢想目標</span></div>
+          </section>`
+      },
+      C: {
+        name: '小精靈陪伴',
+        html: `
+          <section class="variant variant-c">
+            <div class="c-date">8 月 17 日，星期一</div>
+            <div class="companion-hero"><div class="mascot"><i class="mascot-horn"></i><i class="mascot-drop"></i></div><div class="companion-copy"><strong>Fin 在這裡</strong><h1>今天的錢，我幫你一起看著。</h1><p>照目前速度，這個月還算穩定。</p></div></div>
+            <div class="c-wallet"><span>本月還可使用<br><small class="muted">距離月底 14 天</small></span><strong>$6,420</strong></div>
+            <section class="c-talk"><h2>跟我說今天花了什麼</h2><p>可以打字，也可以直接說。</p>${commonInput}<div class="c-fin">Fin：小說 $290 已記下來，分類在娛樂。</div></section>
+            <h2 class="c-todo-title">今天想提醒你</h2>
+            <article class="c-task"><strong>網路費好像還沒繳</strong><p>本月 $599 尚未看到繳費紀錄。</p></article>
+            <article class="c-task"><strong>英國看雪之旅</strong><p>離本月存錢目標還差 $2,000。</p></article>
+            <div class="text-tabs"><button class="selected">最近紀錄</button><button>夢想目標</button></div>
+          </section>`
+      },
+      D: {
+        name: 'C 上方＋B 下方',
+        html: `
+          <section class="variant variant-d">
+            <div class="d-companion-top">
+              <div class="c-date">8 月 17 日，星期一</div>
+              <div class="companion-hero">
+                <div class="mascot"><i class="mascot-horn"></i><i class="mascot-drop"></i></div>
+                <div class="companion-copy"><strong>Fin 在這裡</strong><h1>今天的錢，我幫你一起看著。</h1><p>照目前速度，這個月還算穩定。</p></div>
+              </div>
+              <div class="c-wallet"><span>本月還可使用<br><small class="muted">距離月底 14 天</small></span><strong>$6,420</strong></div>
+            </div>
+            <div class="d-editorial-body">
+              <section class="b-section"><span class="b-number">01</span><h2>跟 Fin 說今天花了什麼</h2><div class="b-input"><input placeholder="午餐 110、飲料 50"><button>送出</button></div><p class="b-reply">Fin / 小說 $290 已記下來 · 娛樂</p></section>
+              <section class="b-section"><span class="b-number">02</span><h2>今天需要留意</h2></section>
+              <article class="b-task"><span class="index">01</span><div><strong>確認網路費</strong><p>尚未看到 $599 的繳費紀錄</p></div><time>今天</time></article>
+              <article class="b-task"><span class="index">02</span><div><strong>英國看雪之旅</strong><p>本月還差 $2,000</p></div><time>本月</time></article>
+              <div class="b-tabs"><span>最近紀錄</span><span>夢想目標</span></div>
+            </div>
+          </section>`
+      },
+      E: {
+        name: '日常財務＋Fin',
+        html: `
+          <section class="variant variant-e">
+            <header class="e-hero">
+              <div class="e-topline"><span>8 月 17 日，星期一</span><button class="e-bell" aria-label="通知">${eIcons.bell}</button></div>
+              <div class="e-companion"><div class="mascot"><i class="mascot-horn"></i><i class="mascot-drop"></i></div><div class="e-copy"><strong>Fin 在這裡</strong><h1>今天的錢，我幫你一起看著。</h1><p>照目前速度，這個月還算穩定。</p></div></div>
+              <div class="e-balance"><span>本月還可以使用<small>距離月底還有 14 天</small></span><strong>$6,420</strong></div>
+            </header>
+            <div class="e-content">
+              <div class="e-title"><h2>快速記帳</h2><span>打字或直接說</span></div>
+              <div class="e-record"><button class="e-record-icon" aria-label="新增記帳">${eIcons.plus}</button><input placeholder="例如：午餐 110 元"><button class="e-record-mic" aria-label="語音記帳">${eIcons.mic}</button></div>
+              <p class="e-feedback">Fin 已記下：小說 $290 · 娛樂</p>
+              <section class="e-reminders">
+                <div class="e-title"><h2>今天需要留意</h2><span class="e-count">2</span></div>
+                <article class="e-item"><span class="e-item-icon">${eIcons.bill}</span><div><strong>網路費還沒確認</strong><p>$599 · 今天到期</p></div><span class="e-chevron">${eIcons.chevron}</span></article>
+                <article class="e-item"><span class="e-item-icon">${eIcons.goal}</span><div><strong>英國看雪之旅</strong><p>本月目標還差 $2,000</p></div><span class="e-chevron">${eIcons.chevron}</span></article>
+              </section>
+              <div class="e-text-tabs"><button class="selected">最近紀錄</button><button>夢想目標</button></div>
+              <article class="e-transaction"><span class="e-category">${eIcons.food}</span><div><strong>午餐</strong><small>今天 · 飲食</small></div><b>− $110</b></article>
+              <article class="e-transaction"><span class="e-category">${eIcons.book}</span><div><strong>小說</strong><small>今天 · 娛樂</small></div><b>− $290</b></article>
+            </div>
+          </section>`
+      }
+    };
+    const keys = Object.keys(variants);
+    const params = new URLSearchParams(window.location.search);
+    let current = keys.includes(params.get('variant')) ? params.get('variant') : 'A';
+    const renderVariant = () => {
+      document.querySelector('#screen').innerHTML = variants[current].html;
+      document.querySelector('#variant-label').textContent = current + ' — ' + variants[current].name;
+      const nextUrl = new URL(window.location.href);
+      nextUrl.searchParams.set('variant', current);
+      window.history.replaceState({}, '', nextUrl);
+      document.querySelector('#screen').scrollTop = 0;
+    };
+    const cycleVariant = (direction) => {
+      const index = keys.indexOf(current);
+      current = keys[(index + direction + keys.length) % keys.length];
+      renderVariant();
+    };
+    document.querySelector('#previous-variant').addEventListener('click', () => cycleVariant(-1));
+    document.querySelector('#next-variant').addEventListener('click', () => cycleVariant(1));
+    window.addEventListener('keydown', event => {
+      if (event.target.matches('input, textarea, [contenteditable]')) return;
+      if (event.key === 'ArrowLeft') cycleVariant(-1);
+      if (event.key === 'ArrowRight') cycleVariant(1);
+    });
+    renderVariant();
+  </script>
+</body>
+</html>

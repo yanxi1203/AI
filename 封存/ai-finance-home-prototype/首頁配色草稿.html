@@ -1,0 +1,139 @@
+<!doctype html>
+<html lang="zh-Hant">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>首頁配色草稿｜AI 財務管家</title>
+  <style>
+    /* PROTOTYPE：同一個 C 上方＋B 下方版型，僅比較三種配色。 */
+    * { box-sizing:border-box; }
+    html,body { min-height:100%; }
+    body { margin:0; background:#e8e8e8; color:#252525; font-family:"Noto Sans TC","PingFang TC","Microsoft JhengHei",sans-serif; }
+    button,input { font:inherit; }
+    button { cursor:pointer; }
+    .stage { min-height:100vh; display:grid; place-items:center; padding:18px 12px 96px; }
+    .phone {
+      --page:#fffdf8; --hero:#edf1eb; --surface:#fffdf8; --ink:#252525;
+      --muted:#6b6c67; --line:#c9cbc3; --accent:#819a8c;
+      --accent-soft:#d9e3dc; --warm:#d59a78; --button:#637b70;
+      position:relative; width:min(390px,calc(100vw - 20px)); height:min(844px,calc(100vh - 110px));
+      min-height:620px; overflow:hidden; border:2px solid var(--ink); border-radius:40px;
+      background:var(--page); color:var(--ink); box-shadow:0 16px 44px rgba(0,0,0,.12);
+    }
+    .theme-sage { --page:#fffdf8; --hero:#edf1eb; --surface:#fffdf8; --ink:#252525; --muted:#686b66; --line:#c9cbc3; --accent:#819a8c; --accent-soft:#d9e3dc; --warm:#d59a78; --button:#637b70; }
+    .theme-terra { --page:#fffaf3; --hero:#f4e6d9; --surface:#fffaf3; --ink:#3b2a24; --muted:#765f56; --line:#d8bbaa; --accent:#c87955; --accent-soft:#f0cdb9; --warm:#a95f43; --button:#ad6043; }
+    .theme-blue { --page:#f8fbfe; --hero:#e7f1fb; --surface:#f8fbfe; --ink:#20334c; --muted:#607086; --line:#bdcddd; --accent:#6f98c5; --accent-soft:#cadff3; --warm:#d9a17d; --button:#355c86; }
+
+    .status { position:relative; height:43px; display:flex; align-items:center; justify-content:space-between; padding:0 31px; background:var(--hero); font-size:12px; }
+    .notch { position:absolute; top:0; left:50%; width:148px; height:29px; border-radius:0 0 18px 18px; background:var(--ink); transform:translateX(-50%); }
+    .signals { display:flex; gap:4px; }
+    .signals i { width:9px; height:9px; border-radius:50%; background:var(--ink); }
+    .screen { height:calc(100% - 43px); overflow-y:auto; padding-bottom:76px; scrollbar-width:none; }
+    .screen::-webkit-scrollbar { display:none; }
+
+    .companion-top { padding:0 20px; background:var(--hero); }
+    .date { padding-top:3px; color:var(--muted); font-size:12px; }
+    .companion-hero { display:grid; grid-template-columns:84px 1fr; align-items:center; gap:15px; padding:25px 0 20px; }
+    .mascot { position:relative; width:70px; height:58px; border:2px solid var(--ink); border-radius:49% 46% 42% 48% / 50% 48% 44% 46%; background:var(--surface); }
+    .mascot::before,.mascot::after { position:absolute; top:24px; width:5px; height:7px; border-radius:50%; background:var(--ink); content:""; }
+    .mascot::before { left:24px; }.mascot::after { right:24px; }
+    .mascot-horn { position:absolute; top:-9px; left:-7px; width:35px; height:20px; border:2px solid var(--ink); border-right:0; border-bottom:0; border-radius:90% 20% 0 20%; background:var(--surface); transform:rotate(-10deg); }
+    .mascot-drop { position:absolute; top:-15px; left:-13px; width:9px; height:12px; border:1.5px solid var(--ink); border-radius:55% 55% 60% 60%; background:var(--warm); }
+    .companion-copy strong { display:block; color:var(--button); font-size:14px; }
+    .companion-copy h1 { margin:6px 0 0; font-family:Georgia,"Noto Serif TC",serif; font-size:21px; font-weight:500; line-height:1.35; }
+    .companion-copy p { margin:7px 0 0; color:var(--muted); font-size:12px; line-height:1.5; }
+    .wallet { display:flex; align-items:flex-end; justify-content:space-between; padding:17px 0; border-top:1px solid var(--line); border-bottom:1px solid var(--line); }
+    .wallet span { font-size:12px; }.wallet small { color:var(--muted); font-size:11px; }
+    .wallet strong { font-family:Georgia,"Times New Roman",serif; font-size:31px; font-weight:500; }
+
+    .editorial { padding:0 23px 30px; }
+    .section { position:relative; padding:22px 0 5px; }
+    .number { display:block; margin-bottom:7px; color:var(--accent); font-family:Georgia,serif; font-size:11px; letter-spacing:.08em; }
+    .section h2 { margin:0; font-family:Georgia,"Noto Serif TC",serif; font-size:19px; font-weight:400; }
+    .input-row { display:grid; grid-template-columns:minmax(0,1fr) 56px; gap:8px; margin-top:14px; }
+    .input-row input { min-width:0; padding:11px 12px; border:1px solid var(--line); border-radius:8px; outline:0; background:var(--surface); color:var(--ink); }
+    .input-row input:focus { border-color:var(--accent); box-shadow:0 0 0 3px var(--accent-soft); }
+    .input-row button { border:0; border-radius:8px; background:var(--button); color:#fff; }
+    .reply { margin:11px 0 0; padding-left:10px; border-left:3px solid var(--accent); color:var(--muted); font-size:12px; }
+    .reply b { color:var(--button); }
+    .task { display:grid; grid-template-columns:27px 1fr auto; gap:10px; align-items:start; padding:14px 0; border-top:1px solid var(--line); }
+    .task .index { color:var(--accent); font-family:Georgia,serif; font-size:12px; }
+    .task strong { display:block; font-size:13px; }.task p { margin:4px 0 0; color:var(--muted); font-size:11px; }
+    .task time { color:var(--muted); font-size:11px; }
+    .tabs { display:grid; grid-template-columns:1fr 1fr; margin-top:11px; border-bottom:1px solid var(--line); }
+    .tabs span { padding:11px 0; color:var(--muted); text-align:center; font-family:Georgia,"Noto Serif TC",serif; font-size:13px; }
+    .tabs span:first-child { border-bottom:3px solid var(--accent); color:var(--ink); }
+
+    .bottom-nav { position:absolute; right:0; bottom:0; left:0; z-index:3; height:70px; display:grid; grid-template-columns:repeat(4,1fr); align-items:center; border-top:1px solid var(--line); background:color-mix(in srgb,var(--page) 94%,transparent); backdrop-filter:blur(10px); }
+    .bottom-nav button { display:grid; gap:4px; place-items:center; border:0; background:transparent; color:var(--muted); font-size:10px; }
+    .bottom-nav button::before { width:19px; height:19px; display:grid; place-items:center; border:1.5px solid currentColor; border-radius:6px; content:""; }
+    .bottom-nav .active { color:var(--button); font-weight:700; }
+    .bottom-nav .active::before { background:var(--accent-soft); }
+
+    .prototype-switcher { position:fixed; bottom:12px; left:50%; z-index:20; display:grid; grid-template-columns:42px minmax(180px,auto) 42px; align-items:center; overflow:hidden; border-radius:999px; background:#191919; color:#fff; box-shadow:0 10px 32px rgba(0,0,0,.28); transform:translateX(-50%); }
+    .prototype-switcher button { height:44px; border:0; background:transparent; color:#fff; font-size:20px; }
+    .prototype-switcher button:hover { background:#333; }
+    .variant-label { padding:0 12px; text-align:center; font-size:12px; white-space:nowrap; }
+    @media (max-width:520px) { .stage { padding-inline:5px; }.phone { height:calc(100vh - 92px); border-radius:24px; }.prototype-switcher { bottom:7px; } }
+  </style>
+</head>
+<body>
+  <main class="stage">
+    <section class="phone theme-sage" id="phone" aria-label="首頁配色草稿">
+      <header class="status"><span>9:41</span><i class="notch"></i><span class="signals"><i></i><i></i><i></i></span></header>
+      <div class="screen">
+        <div class="companion-top">
+          <div class="date">8 月 17 日，星期一</div>
+          <div class="companion-hero">
+            <div class="mascot"><i class="mascot-horn"></i><i class="mascot-drop"></i></div>
+            <div class="companion-copy"><strong>Fin 在這裡</strong><h1>今天的錢，我幫你一起看著。</h1><p>照目前速度，這個月還算穩定。</p></div>
+          </div>
+          <div class="wallet"><span>本月還可使用<br><small>距離月底 14 天</small></span><strong>$6,420</strong></div>
+        </div>
+        <div class="editorial">
+          <section class="section"><span class="number">01</span><h2>跟 Fin 說今天花了什麼</h2><div class="input-row"><input placeholder="午餐 110、飲料 50"><button>送出</button></div><p class="reply"><b>Fin /</b> 小說 $290 已記下來 · 娛樂</p></section>
+          <section class="section"><span class="number">02</span><h2>今天需要留意</h2></section>
+          <article class="task"><span class="index">01</span><div><strong>確認網路費</strong><p>尚未看到 $599 的繳費紀錄</p></div><time>今天</time></article>
+          <article class="task"><span class="index">02</span><div><strong>英國看雪之旅</strong><p>本月還差 $2,000</p></div><time>本月</time></article>
+          <div class="tabs"><span>最近紀錄</span><span>夢想目標</span></div>
+        </div>
+      </div>
+      <nav class="bottom-nav" aria-label="主要導覽"><button class="active">首頁</button><button>帳本</button><button>分析</button><button>設定</button></nav>
+    </section>
+  </main>
+  <nav class="prototype-switcher" aria-label="配色切換">
+    <button id="previous" aria-label="上一個配色">‹</button>
+    <div class="variant-label" id="variantLabel"></div>
+    <button id="next" aria-label="下一個配色">›</button>
+  </nav>
+  <script>
+    const variants = {
+      A: { name:'鼠尾草綠', className:'theme-sage' },
+      B: { name:'暖陶土色', className:'theme-terra' },
+      C: { name:'沉穩淺藍', className:'theme-blue' }
+    };
+    const keys = Object.keys(variants);
+    const params = new URLSearchParams(location.search);
+    let current = keys.includes(params.get('variant')) ? params.get('variant') : 'A';
+    const phone = document.getElementById('phone');
+    const label = document.getElementById('variantLabel');
+    function render(key) {
+      current = key;
+      phone.className = `phone ${variants[key].className}`;
+      label.textContent = `${key} — ${variants[key].name}`;
+      const url = new URL(location.href);
+      url.searchParams.set('variant',key);
+      history.replaceState(null,'',url);
+    }
+    function cycle(direction) { render(keys[(keys.indexOf(current) + direction + keys.length) % keys.length]); }
+    document.getElementById('previous').addEventListener('click',()=>cycle(-1));
+    document.getElementById('next').addEventListener('click',()=>cycle(1));
+    document.addEventListener('keydown',(event)=>{
+      if (['INPUT','TEXTAREA'].includes(document.activeElement.tagName) || document.activeElement.isContentEditable) return;
+      if (event.key === 'ArrowLeft') cycle(-1);
+      if (event.key === 'ArrowRight') cycle(1);
+    });
+    render(current);
+  </script>
+</body>
+</html>

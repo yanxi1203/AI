@@ -1,0 +1,31 @@
+<!-- PROTOTYPE: Selected F + E settings structure with an in-memory appearance preview. -->
+<main class="app-shell" aria-label="AI 財務管家設定整合草稿">
+  <section id="phone" class="phone">
+    <div class="ios-status"><span>9:41</span><span class="ios-notch" aria-hidden="true"></span><span>●●●</span></div>
+    <div class="content">
+      <header class="top"><div class="date">設定</div><h1>這是你的財務空間。</h1></header>
+
+      <section class="section"><div class="section-head"><h2>個人偏好</h2></div></section>
+      <section class="appearance"><strong>外觀</strong><p>讓 APP 配合你平常使用手機的方式。</p><div class="theme-options"><button data-theme="system" class="selected">跟隨系統</button><button data-theme="light">淺色</button><button data-theme="dark">深色</button></div></section>
+      <div class="setting-list"><div class="setting-row"><div><strong>首頁顯示內容</strong><span>AI 摘要、待辦、快速記帳與夢想目標</span></div><span class="chevron">›</span></div><div class="setting-row"><div><strong>通知與提醒</strong><span>待繳費、預算與每日摘要</span></div><span class="chevron">›</span></div></div>
+
+      <section class="section"><div class="section-head"><h2>財務規則</h2></div></section>
+      <div class="setting-list"><div class="setting-row"><div><strong>每月預算</strong><span>$15,000</span></div><span class="chevron">›</span></div><div class="setting-row"><div><strong>記帳分類</strong><span>飲食、交通、娛樂與自訂分類</span></div><span class="chevron">›</span></div><div class="setting-row"><div><strong>固定支出與繳費日</strong><span>網路費、訂閱與其他帳單</span></div><span class="chevron">›</span></div><div class="setting-row"><div><strong>夢想目標</strong><span>存錢方式與目標優先順序</span></div><span class="chevron">›</span></div></div>
+
+      <section class="section"><div class="section-head"><h2>AI 管家</h2></div></section>
+      <div class="setting-list"><div class="setting-row"><div><strong>名稱、個性與說話方式</strong><span>小管家 · 溫柔陪伴</span></div><span class="chevron">›</span></div></div>
+
+      <section class="section"><div class="section-head"><h2>我的資料</h2></div></section>
+      <div class="setting-list"><div class="setting-row"><div><strong>帳本與分類</strong><span>交易紀錄、目標與自訂分類</span></div><span class="chevron">›</span></div><div class="setting-row"><div><strong>資料備份與匯出</strong><span>保留一份自己的紀錄</span></div><span class="chevron">›</span></div><div class="setting-row"><div><strong>隱私與使用說明</strong><span>資料如何儲存與使用</span></div><span class="chevron">›</span></div></div>
+    </div>
+    <nav class="bottom-nav"><span>首頁</span><span>帳本</span><span>分析</span><strong>設定</strong></nav>
+  </section>
+</main>
+<style>
+  :root{font-family:ui-sans-serif,system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;background:#ececec}*{box-sizing:border-box}body{margin:0;min-height:100vh}.app-shell{min-height:100vh;padding:24px 16px}.phone{--surface:#fff;--ink:#202020;--muted:#666;--line:#d3d3d3;--subtle:#dedede;position:relative;width:min(100%,390px);height:844px;margin:0 auto;overflow:hidden;border:2px solid var(--ink);border-radius:34px;background:var(--surface);color:var(--ink)}.phone.dark{--surface:#202020;--ink:#f1f1f1;--muted:#b7b7b7;--line:#5a5a5a;--subtle:#515151}.ios-status{display:flex;align-items:center;justify-content:space-between;height:39px;padding:8px 28px 0;font-size:12px;font-weight:500}.ios-notch{width:118px;height:24px;margin-top:-8px;border-radius:0 0 14px 14px;background:var(--ink)}.content{height:calc(100% - 39px);overflow-y:auto;padding-bottom:84px;scrollbar-width:none}.content::-webkit-scrollbar{display:none}.top{padding:14px 22px 18px}.date,.setting-row span{color:var(--muted);font-size:12px}h1,h2,p{margin:0}h1{margin-top:7px;font-size:23px;font-weight:500;letter-spacing:-.4px}h2{font-size:15px;font-weight:500}.section{padding:18px 22px 0}.section-head{display:flex;justify-content:space-between;align-items:baseline;margin-bottom:6px}.appearance{margin:0 16px;padding:15px;border:1.5px solid var(--ink);border-radius:15px;font-size:14px}.appearance p{margin-top:5px;color:var(--muted);font-size:12px;line-height:1.45}.theme-options{display:grid;grid-template-columns:repeat(3,1fr);gap:7px;margin-top:13px}.theme-options button{padding:9px 3px;border:1px solid var(--muted);border-radius:8px;background:var(--surface);color:var(--ink);font-size:12px}.theme-options button.selected{border-color:var(--ink);background:var(--ink);color:var(--surface)}.setting-list{padding:0 22px}.setting-row{display:flex;align-items:center;justify-content:space-between;gap:12px;padding:14px 0;border-top:1px solid var(--line);font-size:14px}.setting-row div{display:grid;gap:4px}.chevron{color:var(--muted);font-size:18px}.bottom-nav{position:absolute;right:0;bottom:0;left:0;display:flex;justify-content:space-around;padding:14px 8px 28px;border-top:1px solid var(--line);background:var(--surface);color:var(--muted);font-size:11px}.bottom-nav strong{color:var(--ink);font-weight:500}@media(max-width:360px){.app-shell{padding-inline:8px}.phone{border-radius:18px}}
+</style>
+<script>
+  const phone=document.querySelector('#phone');const buttons=document.querySelectorAll('[data-theme]');
+  const applyTheme=(theme)=>{const isDark=theme==='dark'||(theme==='system'&&window.matchMedia('(prefers-color-scheme: dark)').matches);phone.classList.toggle('dark',isDark);buttons.forEach(button=>button.classList.toggle('selected',button.dataset.theme===theme))};
+  buttons.forEach(button=>button.addEventListener('click',()=>applyTheme(button.dataset.theme)));applyTheme('system');
+</script>
