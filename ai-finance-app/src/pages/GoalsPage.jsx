@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { Archive, CheckCircle2, ChevronRight, Pencil, Plus, RotateCcw, Target, Trash2 } from 'lucide-react';
 import PageHeader from '../shared/PageHeader';
 import GoalGuide from './GoalGuide';
@@ -6,7 +6,7 @@ import { changeGoalStatus, groupGoalsByStatus } from '../modules/goals/goalPlann
 
 const money = (value) => Math.round(Number(value || 0)).toLocaleString('zh-TW');
 
-export default function GoalsPage({ goals = [], butlerName = 'Fin', monthlySavingCapacity = 0, allocationStatus = 'ready', onBack, onAddGoal, onUpdateGoal, onDeleteGoal }) {
+export default function GoalsPage({ goals = [], butlerName = 'Fin', monthlySavingCapacity = 0, allocationStatus = 'ready', goalDraft = null, shouldOpenGoalDraft = false, onDiscardGoalDraft, onBack, onAddGoal, onUpdateGoal, onDeleteGoal }) {
   const [isAdding, setIsAdding] = useState(false);
   const [editingGoalId, setEditingGoalId] = useState(null);
   const [showHistory, setShowHistory] = useState(false);
@@ -20,7 +20,17 @@ export default function GoalsPage({ goals = [], butlerName = 'Fin', monthlySavin
 
   const openGuide = () => { setEditingGoalId(null); setIsAdding(true); };
   const openEdit = (goal) => { setEditingGoalId(goal.id); setIsAdding(true); };
-  const closeGuide = () => { setIsAdding(false); setEditingGoalId(null); };
+  const closeGuide = () => {
+    if (!editingGoal && shouldOpenGoalDraft) onDiscardGoalDraft?.();
+    setIsAdding(false);
+    setEditingGoalId(null);
+  };
+
+  useEffect(() => {
+    if (!shouldOpenGoalDraft || !goalDraft) return;
+    setEditingGoalId(null);
+    setIsAdding(true);
+  }, [goalDraft, shouldOpenGoalDraft]);
   const deleteGoal = (goal) => {
     if (!window.confirm(`確定永久刪除「${goal.title}」嗎？這個動作無法復原。`)) return;
     onDeleteGoal?.(goal.id);
@@ -44,6 +54,6 @@ export default function GoalsPage({ goals = [], butlerName = 'Fin', monthlySavin
       return <article key={goal.id}><span className={`goal-history-status ${completed ? 'is-completed' : ''}`}>{completed ? <CheckCircle2 size={15} /> : <Archive size={15} />}</span><div><strong>{goal.title}</strong><small>{completed ? '已完成' : '已封存'}{goal.targetAmount ? ` · 目標 $${money(goal.targetAmount)}` : ''}</small></div><div className="goal-history-actions"><button type="button" onClick={() => onUpdateGoal(changeGoalStatus(goal, 'active'))}><RotateCcw size={14} />恢復</button><button type="button" onClick={() => deleteGoal(goal)}><Trash2 size={14} />刪除</button></div></article>;
     })}</div>}</section>}
 
-    {isAdding && <GoalGuide key={editingGoal?.id || 'new-goal'} butlerName={butlerName} editingGoal={editingGoal} monthlySavingCapacity={monthlySavingCapacity} allocationStatus={allocationStatus} onAddGoal={onAddGoal} onUpdateGoal={onUpdateGoal} onClose={closeGuide} />}
+    {isAdding && <GoalGuide key={editingGoal?.id || (shouldOpenGoalDraft ? `draft-${goalDraft?.sourceText}` : 'new-goal')} butlerName={butlerName} editingGoal={editingGoal} initialDraft={!editingGoal && shouldOpenGoalDraft ? goalDraft : null} monthlySavingCapacity={monthlySavingCapacity} allocationStatus={allocationStatus} onAddGoal={onAddGoal} onUpdateGoal={onUpdateGoal} onClose={closeGuide} />}
   </main>;
 }

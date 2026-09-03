@@ -6,6 +6,7 @@ import {
 import FinMascot from '../shared/FinMascot';
 import { isPaymentTask, shouldShowRecurringReminder } from '../modules/finance/monthlyPlan';
 import { getGoalStatus } from '../modules/goals/goalPlanner';
+import { getHomeAssistantInputCopy } from '../modules/goals/goalIntent';
 
 const money = (value) => Math.round(Number(value || 0)).toLocaleString('zh-TW');
 
@@ -24,9 +25,11 @@ export default function HomePage({
   finReply,
   pendingConfirmation,
   paymentMatch,
+  goalDraft,
   onSendMessage,
   onResolvePending,
   onResolvePaymentMatch,
+  onResolveGoalIntent,
   onReminderAction,
   onOpenCarrier,
   onOpenGoals,
@@ -75,6 +78,7 @@ export default function HomePage({
   }).format(new Date());
   const homeSections = settings.homeSections || { reminders: true, recentRecords: true, goals: true };
   const butlerName = settings.name || 'Fin';
+  const assistantInputCopy = getHomeAssistantInputCopy(butlerName);
   const recent = summary.recentTransactions.slice(0, 4);
   const visibleGoals = goals.filter((goal) => getGoalStatus(goal) === 'active').slice(0, 2);
   const reminders = recurring.filter((item) => shouldShowRecurringReminder(item)).slice(0, 3);
@@ -133,10 +137,10 @@ export default function HomePage({
       </header>
 
       <section className="home-content">
-        <section className="quick-entry" aria-label={'跟 ' + butlerName + ' 說今天花了什麼'}>
+        <section className="quick-entry" aria-label={assistantInputCopy.regionLabel}>
           <div className="section-heading">
-            <h2>快速記帳</h2>
-            <span>打字或直接說</span>
+            <h2>{assistantInputCopy.title}</h2>
+            <span>{assistantInputCopy.subtitle}</span>
           </div>
           <div className="quick-entry__bar">
             <input
@@ -144,13 +148,14 @@ export default function HomePage({
               value={input}
               onChange={(event) => setInput(event.target.value)}
               onKeyDown={(event) => event.key === 'Enter' && submit()}
-              placeholder="例如：午餐 110 元"
+              placeholder={assistantInputCopy.placeholder}
+              aria-label={assistantInputCopy.inputLabel}
               autoComplete="off"
             />
             <button type="button" className={isListening ? 'is-listening' : ''} onClick={startVoice} aria-label="使用語音輸入">
               <Mic size={17} />
             </button>
-            <button type="button" className="quick-entry__send" onClick={submit} disabled={!input.trim()} aria-label="送出">
+            <button type="button" className="quick-entry__send" onClick={submit} disabled={!input.trim()} aria-label={assistantInputCopy.sendLabel}>
               <Send size={17} />
             </button>
           </div>
@@ -162,6 +167,10 @@ export default function HomePage({
           {pendingConfirmation?.mode === 'confirmation' && <div className="fin-confirm-actions">
             <button type="button" onClick={() => onResolvePending(true)}>是，幫我記下</button>
             <button type="button" onClick={() => onResolvePending(false)}>不是</button>
+          </div>}
+          {goalDraft && <div className="fin-confirm-actions goal-intent-actions">
+            <button type="button" onClick={() => onResolveGoalIntent('start')}>開始規劃</button>
+            <button type="button" onClick={() => onResolveGoalIntent('dismiss')}>暫時不用</button>
           </div>}
           {paymentMatch?.mode === 'choose' && <div className="payment-match-actions">
             {paymentMatch.candidates.map((candidate) => <button type="button" key={candidate.id} onClick={() => onResolvePaymentMatch(candidate.id)}>{candidate.title}</button>)}

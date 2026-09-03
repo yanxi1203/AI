@@ -16,6 +16,11 @@ import {
   syncFixedItemsToPaymentTasks
 } from '../modules/finance/monthlyPlan';
 import { processFinanceMessage } from '../modules/transactions/transactionAssistant';
+import {
+  GOAL_INTENT_REPLY,
+  createGoalDraftFromMessage,
+  resolveGoalIntentAction
+} from '../modules/goals/goalIntent';
 import { generateButlerChatReply } from '../utils/butlerEngine';
 import { clearAppState, createAppSnapshot, loadAppState, saveAppState } from '../modules/persistence/appStateClient';
 import { sendFinanceMessage } from '../modules/persistence/financeAssistantClient';
@@ -72,6 +77,8 @@ export default function FinanceApp() {
   const [finReply, setFinReply] = useState('可以告訴我今天花了什麼、收到多少收入，或你想完成的夢想。');
   const [pendingConfirmation, setPendingConfirmation] = useState(null);
   const [paymentMatch, setPaymentMatch] = useState(null);
+  const [goalDraft, setGoalDraft] = useState(null);
+  const [goalGuideRequested, setGoalGuideRequested] = useState(false);
   const [recurring, setRecurring] = useState(getStoredRecurring());
   const [persistenceReady, setPersistenceReady] = useState(false);
   const [backendStatus, setBackendStatus] = useState('connecting');
@@ -157,6 +164,8 @@ export default function FinanceApp() {
       setActivePage('home');
       setReturnPage('home');
       setPendingConfirmation(null);
+      setGoalDraft(null);
+      setGoalGuideRequested(false);
       setOnboardingSession((current) => current + 1);
       document.querySelector('.app-scroll')?.scrollTo({ top: 0 });
     };
@@ -218,6 +227,10 @@ export default function FinanceApp() {
     } catch {
       result = processFinanceMessage({ text, transactions, pendingConfirmation });
       setBackendStatus('offline');
+    }
+    if (!(result.kind === 'chat' && result.parsed?.type === 'goal')) {
+      setGoalDraft(null);
+      setGoalGuideRequested(false);
     }
     if (result.kind === 'transaction_added' || result.kind === 'transactions_added' || result.kind === 'transaction_corrected') {
       let nextTransactions = result.transactions;
@@ -282,7 +295,9 @@ export default function FinanceApp() {
     }
     if (result.kind === 'chat' && result.parsed?.type === 'goal') {
       setPendingConfirmation(null);
-      setFinReply('這聽起來像一個夢想目標。可以先建立名稱，金額不知道也沒關係，我再陪你慢慢估算。');
+      setGoalDraft(createGoalDraftFromMessage({ sourceText: text, parsed: result.parsed }));
+      setGoalGuideRequested(false);
+      setFinReply(GOAL_INTENT_REPLY);
       return;
     }
     if (result.kind === 'chat') {
@@ -295,6 +310,17 @@ export default function FinanceApp() {
         todayAvailable: summary.todayAvailable
       }, settings)));
     }
+  };
+
+  const handleGoalIntent = (action) => {
+    const transition = resolveGoalIntentAction(action, goalDraft);
+    setGoalDraft(transition.goalDraft);
+    setGoalGuideRequested(transition.openGuide);
+    if (transition.nextPage) {
+      openSubpage(transition.nextPage, 'home');
+      return;
+    }
+    setFinReply('好的，想規劃時再告訴我就可以。');
   };
 
   const resolvePaymentMatch = (recurringId) => {
@@ -369,6 +395,8 @@ export default function FinanceApp() {
 
   const addGoal = (goal) => {
     setGoals((current) => [...current, goal]);
+    setGoalDraft(null);
+    setGoalGuideRequested(false);
     showNotice(`已建立「${goal.title}」`);
   };
 
@@ -533,11 +561,11 @@ export default function FinanceApp() {
       <section className="phone-shell" aria-label="AI 財務管家">
         <div className="ios-status" aria-hidden="true"><span>9:41</span><i /><span>●●●</span></div>
         <div className="app-scroll">
-          {activePage === 'home' && <HomePage summary={summary} goals={goals} recurring={recurring} settings={settings} finReply={finReply} pendingConfirmation={pendingConfirmation} paymentMatch={paymentMatch} onSendMessage={handleSendMessage} onResolvePending={(confirmed) => handleSendMessage(confirmed ? '是' : '不是')} onResolvePaymentMatch={resolvePaymentMatch} onReminderAction={handleReminderAction} onOpenCarrier={() => openSubpage('carrier', 'home')} onOpenGoals={() => openSubpage('goals', 'home')} onOpenSettings={() => navigate('settings')} />}
+          {activePage === 'home' && <HomePage summary={summary} goals={goals} recurring={recurring} settings={settings} finReply={finReply} pendingConfirmation={pendingConfirmation} paymentMatch={paymentMatch} goalDraft={goalDraft} onSendMessage={handleSendMessage} onResolvePending={(confirmed) => handleSendMessage(confirmed ? '是' : '不是')} onResolvePaymentMatch={resolvePaymentMatch} onResolveGoalIntent={handleGoalIntent} onReminderAction={handleReminderAction} onOpenCarrier={() => openSubpage('carrier', 'home')} onOpenGoals={() => openSubpage('goals', 'home')} onOpenSettings={() => navigate('settings')} />}
           {activePage === 'ledger' && <LedgerPage summary={summary} butlerName={settings.name} categories={settings.categories} allocationStatus={settings.allocation?.status} onDeleteTransaction={deleteTransaction} onEditTransaction={editTransaction} />}
           {activePage === 'analysis' && <AnalysisPage summary={summary} butlerName={settings.name} plannedSavings={settings.allocation?.savings || 0} allocationStatus={settings.allocation?.status} />}
           {activePage === 'settings' && <SettingsPage theme={theme} settings={settings} recurring={recurring} monthlyBudget={monthlyBudget} transactions={transactions} backendStatus={backendStatus} onThemeChange={setTheme} onSettingsChange={setSettings} onRecurringChange={handleRecurringChange} onBudgetChange={handleBudgetChange} onFinancialPlanChange={handleFinancialPlanChange} onOpenGoals={() => openSubpage('goals', 'settings')} onOpenCarrier={() => openSubpage('carrier', 'settings')} onPaymentAction={handleReminderAction} onRestartOnboarding={restartOnboarding} showOnboardingRestart={import.meta.env.DEV} onResetData={resetData} />}
-          {activePage === 'goals' && <GoalsPage goals={goals} butlerName={settings.name} monthlySavingCapacity={settings.allocation?.savings || 0} allocationStatus={settings.allocation?.status} onBack={() => navigate(returnPage)} onAddGoal={addGoal} onUpdateGoal={updateGoal} onDeleteGoal={deleteGoal} />}
+          {activePage === 'goals' && <GoalsPage goals={goals} butlerName={settings.name} monthlySavingCapacity={settings.allocation?.savings || 0} allocationStatus={settings.allocation?.status} goalDraft={goalDraft} shouldOpenGoalDraft={goalGuideRequested} onDiscardGoalDraft={() => { setGoalDraft(null); setGoalGuideRequested(false); }} onBack={() => navigate(returnPage)} onAddGoal={addGoal} onUpdateGoal={updateGoal} onDeleteGoal={deleteGoal} />}
           {activePage === 'carrier' && <CarrierPage barcode={barcode} onBack={() => navigate(returnPage)} onSaveBarcode={setBarcode} />}
         </div>
         {uiNotice && <div className="app-toast" role="status" aria-live="polite" key={uiNotice.id}>{uiNotice.message}</div>}

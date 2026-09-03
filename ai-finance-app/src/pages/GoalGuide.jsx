@@ -8,6 +8,7 @@ import {
   parseGoalAmount,
   updateGoalRecord
 } from '../modules/goals/goalPlanner';
+import { getGoalGuideInitialState } from '../modules/goals/goalIntent';
 import { requestGoalEstimate } from '../modules/persistence/goalEstimateClient';
 
 const money = (value) => Math.round(Number(value || 0)).toLocaleString('zh-TW');
@@ -84,22 +85,23 @@ function goalCategory(type, requirements) {
   return '自訂';
 }
 
-export default function GoalGuide({ butlerName, editingGoal, monthlySavingCapacity, allocationStatus, onAddGoal, onUpdateGoal, onClose }) {
+export default function GoalGuide({ butlerName, editingGoal, initialDraft, monthlySavingCapacity, allocationStatus, onAddGoal, onUpdateGoal, onClose }) {
   const editing = Boolean(editingGoal);
-  const [stage, setStage] = useState(editing ? 'savings' : 'name');
-  const [stageHistory, setStageHistory] = useState([]);
-  const [title, setTitle] = useState(editingGoal?.title || '');
-  const [amountMode, setAmountMode] = useState(editing ? 'known' : null);
-  const [amountInput, setAmountInput] = useState(editingGoal?.targetAmount ? String(editingGoal.targetAmount) : '');
+  const draftInitialState = getGoalGuideInitialState(initialDraft);
+  const [stage, setStage] = useState(editing ? 'savings' : draftInitialState.stage);
+  const [stageHistory, setStageHistory] = useState(!editing && draftInitialState.stage === 'savings' ? ['amount'] : []);
+  const [title, setTitle] = useState(editingGoal?.title || draftInitialState.title);
+  const [amountMode, setAmountMode] = useState(editing ? 'known' : draftInitialState.amountMode);
+  const [amountInput, setAmountInput] = useState(editingGoal?.targetAmount ? String(editingGoal.targetAmount) : draftInitialState.amountInput);
   const [savedAmount, setSavedAmount] = useState(String(editingGoal?.savedAmount || 0));
-  const [goalType, setGoalType] = useState(editingGoal?.type || null);
+  const [goalType, setGoalType] = useState(editingGoal?.type || draftInitialState.goalType);
   const [requirements, setRequirements] = useState(editingGoal?.requirements || {});
   const [questionIndex, setQuestionIndex] = useState(0);
   const [estimateResult, setEstimateResult] = useState(null);
   const [selectedCostId, setSelectedCostId] = useState(editingGoal?.estimation?.optionId || 'balanced');
   const [selectedPlanId, setSelectedPlanId] = useState(['comfortable', 'balanced', 'accelerated'].includes(editingGoal?.planId) ? editingGoal.planId : 'balanced');
   const [errorMessage, setErrorMessage] = useState('');
-  const [dirty, setDirty] = useState(false);
+  const [dirty, setDirty] = useState(Boolean(initialDraft));
   const [confirmDiscard, setConfirmDiscard] = useState(false);
 
   const targetAmount = parseGoalAmount(amountInput);
@@ -123,7 +125,7 @@ export default function GoalGuide({ butlerName, editingGoal, monthlySavingCapaci
 
   const chooseEstimate = () => {
     setAmountMode('estimate');
-    const detected = detectGoalType(title);
+    const detected = goalType || detectGoalType(title);
     if (!detected) return goTo('type');
     setGoalType(detected);
     setRequirements({ ...DEFAULT_REQUIREMENTS[detected] });
@@ -133,7 +135,7 @@ export default function GoalGuide({ butlerName, editingGoal, monthlySavingCapaci
 
   const continueKnownAmount = () => {
     if (targetAmount <= 0) return setErrorMessage('請輸入有效的目標金額，例如 30000、3萬或三萬。');
-    setGoalType(detectGoalType(title) || editingGoal?.type || 'custom');
+    setGoalType(goalType || detectGoalType(title) || editingGoal?.type || 'custom');
     setEstimateResult(null);
     goTo('savings');
   };
