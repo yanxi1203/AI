@@ -1,4 +1,4 @@
-import { getLocalDateKey, getMonthKey } from '../../utils/date.js';
+import { getLocalDateKey, getLocalDay, getMonthKey } from '../../utils/date.js';
 
 const positiveNumber = (value) => Math.max(0, Number(value || 0));
 const PAYMENT_KEYWORDS = ['房租', '水費', '電費', '瓦斯', '網路', '手機', '電信', '學費', '管理費', '訂閱', '保險', '信用卡'];
@@ -51,7 +51,7 @@ export function shouldShowRecurringReminder(item, now = new Date()) {
   if (!isPaymentTask(item)) return true;
   if (!item.dueDay) return false;
   const reminderStartDay = Math.max(1, Number(item.dueDay) - 5);
-  return now.getDate() >= reminderStartDay;
+  return getLocalDay(now) >= reminderStartDay;
 }
 
 function normalizedMatchText(value) {

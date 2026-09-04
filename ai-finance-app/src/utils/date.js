@@ -1,8 +1,20 @@
+const APP_TIME_ZONE = 'Asia/Taipei';
+const dateKeyFormatter = new Intl.DateTimeFormat('en-CA', {
+  timeZone: APP_TIME_ZONE,
+  year: 'numeric',
+  month: '2-digit',
+  day: '2-digit'
+});
+
 export function getLocalDateKey(date = new Date()) {
-  const year = date.getFullYear();
-  const month = String(date.getMonth() + 1).padStart(2, '0');
-  const day = String(date.getDate()).padStart(2, '0');
-  return `${year}-${month}-${day}`;
+  const parts = Object.fromEntries(
+    dateKeyFormatter.formatToParts(date).map(({ type, value }) => [type, value])
+  );
+  return `${parts.year}-${parts.month}-${parts.day}`;
+}
+
+export function getLocalDay(date = new Date()) {
+  return Number(getLocalDateKey(date).slice(-2));
 }
 
 export function getMonthKey(date = new Date()) {
