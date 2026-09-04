@@ -1,7 +1,21 @@
-import { getLocalDateKey, getLocalDay, getMonthKey } from '../../utils/date.js';
+import { getLocalDateKey, getMonthKey } from '../../utils/date.js';
 
 const positiveNumber = (value) => Math.max(0, Number(value || 0));
 const PAYMENT_KEYWORDS = ['房租', '水費', '電費', '瓦斯', '網路', '手機', '電信', '學費', '管理費', '訂閱', '保險', '信用卡'];
+const DAY_IN_MILLISECONDS = 24 * 60 * 60 * 1000;
+
+function getMonthlyDueDistance(item, now) {
+  const [todayYear, todayMonth, todayDay] = getLocalDateKey(now).split('-').map(Number);
+  const currentCycleCompleted = isRecurringCompleted(item, now);
+  const targetMonthIndex = todayMonth - 1 + (currentCycleCompleted ? 1 : 0);
+  const targetYear = todayYear + Math.floor(targetMonthIndex / 12);
+  const targetMonth = ((targetMonthIndex % 12) + 12) % 12;
+  const daysInTargetMonth = new Date(Date.UTC(targetYear, targetMonth + 1, 0)).getUTCDate();
+  const targetDay = Math.min(daysInTargetMonth, Math.max(1, Number(item.dueDay)));
+  const todayTimestamp = Date.UTC(todayYear, todayMonth - 1, todayDay);
+  const dueTimestamp = Date.UTC(targetYear, targetMonth, targetDay);
+  return Math.round((dueTimestamp - todayTimestamp) / DAY_IN_MILLISECONDS);
+}
 
 export function isPaymentTask(item) {
   return item?.kind === 'payment' || item?.isFixedExpense === true || Boolean(item?.dueDay);
@@ -46,12 +60,12 @@ export function isRecurringCompleted(item, now = new Date()) {
 }
 
 export function shouldShowRecurringReminder(item, now = new Date()) {
-  if (!item || item.enabled === false || isRecurringCompleted(item, now)) return false;
+  if (!item || item.enabled === false) return false;
   if (item.skippedOn === getLocalDateKey(now)) return false;
-  if (!isPaymentTask(item)) return true;
+  if (!isPaymentTask(item)) return !isRecurringCompleted(item, now);
   if (!item.dueDay) return false;
-  const reminderStartDay = Math.max(1, Number(item.dueDay) - 5);
-  return getLocalDay(now) >= reminderStartDay;
+  const daysUntilDue = getMonthlyDueDistance(item, now);
+  return daysUntilDue >= 0 && daysUntilDue <= 5;
 }
 
 function normalizedMatchText(value) {

@@ -99,17 +99,108 @@ test('Fin corrects one matching transaction without mutating the source', () => 
 });
 
 test('Fin asks which record when more than one item matches', () => {
+  const transactions = [
+    { id: 'tx_1', type: 'expense', title: '午餐便當', amount: 110, category: '飲食', date: '2026-08-19' },
+    { id: 'tx_2', type: 'expense', title: '午餐飲料', amount: 50, category: '飲食', date: '2026-08-19' }
+  ];
   const result = processFinanceMessage({
     text: '今天午餐改成130',
-    transactions: [
-      { id: 'tx_1', type: 'expense', title: '午餐便當', amount: 110, category: '飲食', date: '2026-08-19' },
-      { id: 'tx_2', type: 'expense', title: '午餐飲料', amount: 50, category: '飲食', date: '2026-08-19' }
-    ],
+    transactions,
     now: NOW
   });
 
   assert.equal(result.kind, 'clarification');
   assert.match(result.reply, /不只一筆/);
+  assert.deepEqual(result.pendingConfirmation.candidateIds, ['tx_1', 'tx_2']);
+  assert.equal(result.pendingConfirmation.newAmount, 130);
+
+  const resolved = processFinanceMessage({
+    text: '第一筆',
+    transactions,
+    pendingConfirmation: result.pendingConfirmation,
+    now: NOW
+  });
+
+  assert.equal(resolved.kind, 'transaction_corrected');
+  assert.equal(resolved.transaction.id, 'tx_1');
+  assert.equal(resolved.transaction.amount, 130);
+  assert.equal(resolved.transactions.find(({ id }) => id === 'tx_2').amount, 50);
+});
+
+test('a correction candidate can be selected by its item name', () => {
+  const transactions = [
+    { id: 'tx_1', type: 'expense', title: '午餐便當', amount: 110, category: '飲食', date: '2026-08-19' },
+    { id: 'tx_2', type: 'expense', title: '午餐飲料', amount: 50, category: '飲食', date: '2026-08-19' }
+  ];
+  const question = processFinanceMessage({ text: '今天午餐改成130', transactions, now: NOW });
+  const resolved = processFinanceMessage({
+    text: '午餐飲料',
+    transactions,
+    pendingConfirmation: question.pendingConfirmation,
+    now: NOW
+  });
+
+  assert.equal(resolved.kind, 'transaction_corrected');
+  assert.equal(resolved.transaction.id, 'tx_2');
+  assert.equal(resolved.transactions.find(({ id }) => id === 'tx_1').amount, 110);
+});
+
+test('a correction candidate can be selected by its original amount', () => {
+  const transactions = [
+    { id: 'tx_1', type: 'expense', title: '午餐便當', amount: 110, category: '飲食', date: '2026-08-19' },
+    { id: 'tx_2', type: 'expense', title: '午餐飲料', amount: 50, category: '飲食', date: '2026-08-19' }
+  ];
+  const question = processFinanceMessage({ text: '今天午餐改成130', transactions, now: NOW });
+  const resolved = processFinanceMessage({
+    text: '原本 50 元那筆',
+    transactions,
+    pendingConfirmation: question.pendingConfirmation,
+    now: NOW
+  });
+
+  assert.equal(resolved.kind, 'transaction_corrected');
+  assert.equal(resolved.transaction.id, 'tx_2');
+  assert.equal(resolved.transactions.find(({ id }) => id === 'tx_1').amount, 110);
+});
+
+test('the second correction candidate can be selected by ordinal', () => {
+  const transactions = [
+    { id: 'tx_1', type: 'expense', title: '午餐便當', amount: 110, category: '飲食', date: '2026-08-19' },
+    { id: 'tx_2', type: 'expense', title: '午餐飲料', amount: 50, category: '飲食', date: '2026-08-19' }
+  ];
+  const question = processFinanceMessage({ text: '今天午餐改成130', transactions, now: NOW });
+  const resolved = processFinanceMessage({ text: '第二筆', transactions, pendingConfirmation: question.pendingConfirmation, now: NOW });
+
+  assert.equal(resolved.transaction.id, 'tx_2');
+  assert.equal(resolved.transactions.find(({ id }) => id === 'tx_1').amount, 110);
+});
+
+test('an invalid correction selection keeps the candidates available', () => {
+  const transactions = [
+    { id: 'tx_1', type: 'expense', title: '午餐便當', amount: 110, category: '飲食', date: '2026-08-19' },
+    { id: 'tx_2', type: 'expense', title: '午餐飲料', amount: 50, category: '飲食', date: '2026-08-19' }
+  ];
+  const question = processFinanceMessage({ text: '今天午餐改成130', transactions, now: NOW });
+  const unresolved = processFinanceMessage({ text: '我不確定', transactions, pendingConfirmation: question.pendingConfirmation, now: NOW });
+
+  assert.equal(unresolved.kind, 'clarification');
+  assert.deepEqual(unresolved.pendingConfirmation, question.pendingConfirmation);
+  assert.match(unresolved.reply, /午餐便當/);
+  assert.match(unresolved.reply, /午餐飲料/);
+});
+
+test('cancelling a correction selection leaves every transaction unchanged', () => {
+  const transactions = [
+    { id: 'tx_1', type: 'expense', title: '午餐便當', amount: 110, category: '飲食', date: '2026-08-19' },
+    { id: 'tx_2', type: 'expense', title: '午餐飲料', amount: 50, category: '飲食', date: '2026-08-19' }
+  ];
+  const original = structuredClone(transactions);
+  const question = processFinanceMessage({ text: '今天午餐改成130', transactions, now: NOW });
+  const cancelled = processFinanceMessage({ text: '取消', transactions, pendingConfirmation: question.pendingConfirmation, now: NOW });
+
+  assert.equal(cancelled.kind, 'confirmation_cancelled');
+  assert.deepEqual(transactions, original);
+  assert.equal('transactions' in cancelled, false);
 });
 
 test('Fin asks for the missing corrected amount', () => {

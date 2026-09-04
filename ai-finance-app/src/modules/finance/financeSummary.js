@@ -1,4 +1,4 @@
-import { getLocalDateKey, getMonthKey, getPreviousMonthKey } from '../../utils/date.js';
+import { getDaysInMonth, getLocalDateKey, getLocalDay, getMonthKey, getPreviousMonthKey } from '../../utils/date.js';
 import { isReservedTransaction } from './monthlyPlan.js';
 
 function safeTransactions(transactions) {
@@ -75,7 +75,7 @@ export function createFinanceSummary({ transactions, monthlyBudget, paymentTasks
   });
   const currentMonth = currentMonthSummary.transactions;
   const previousMonth = previousMonthSummary.transactions;
-  const currentDay = now.getDate();
+  const currentDay = getLocalDay(now);
   const previousComparable = previousMonth.filter((transaction) => Number(transaction.date?.slice(-2)) <= currentDay);
   const today = currentMonth.filter((transaction) => transaction.date === todayKey);
   const currentExpenses = currentMonthSummary.expenses;
@@ -87,8 +87,8 @@ export function createFinanceSummary({ transactions, monthlyBudget, paymentTasks
   const flexibleExpenses = currentMonthSummary.flexibleExpenses;
   const budget = currentMonthSummary.monthlyBudget;
   const monthRemaining = currentMonthSummary.remaining;
-  const lastDay = new Date(now.getFullYear(), now.getMonth() + 1, 0).getDate();
-  const remainingDays = Math.max(1, lastDay - now.getDate() + 1);
+  const lastDay = getDaysInMonth(now);
+  const remainingDays = Math.max(1, lastDay - currentDay + 1);
   const percentChange = previousComparableExpenses > 0
     ? Math.round(((currentExpenses - previousComparableExpenses) / previousComparableExpenses) * 100)
     : null;

@@ -65,6 +65,25 @@ function describeCandidates(candidates) {
     .join('、');
 }
 
+function selectCorrectionCandidate(text, candidates) {
+  const ordinal = text.match(/第?([一二兩])筆/);
+  const ordinalIndex = ordinal ? ({ 一: 0, 二: 1, 兩: 1 }[ordinal[1]]) : null;
+  if (ordinalIndex !== null) return candidates[ordinalIndex] || null;
+
+  const normalizedReply = text.replace(/[\s，,。.!！?？]/g, '');
+  const nameMatches = candidates.filter((candidate) => {
+    const normalizedTitle = candidate.title.replace(/\s/g, '');
+    return normalizedReply.includes(normalizedTitle) || normalizedTitle.includes(normalizedReply);
+  });
+  if (nameMatches.length === 1) return nameMatches[0];
+
+  const originalAmount = parseAmount(text);
+  const amountMatches = originalAmount === null
+    ? []
+    : candidates.filter((candidate) => Number(candidate.amount) === originalAmount);
+  return amountMatches.length === 1 ? amountMatches[0] : null;
+}
+
 function findCorrectionCandidates(request, transactions) {
   let candidates = transactions.filter((transaction) => transaction.type !== 'goal');
 
@@ -112,9 +131,16 @@ function handleCorrection(text, transactions, now) {
     };
   }
   if (candidates.length > 1) {
+    const visibleCandidates = candidates.slice(0, 3);
     return {
       kind: 'clarification',
-      reply: `我找到不只一筆可能的紀錄：${describeCandidates(candidates)}。你要改哪一筆呢？`
+      pendingConfirmation: {
+        mode: 'correction_candidate',
+        candidateIds: visibleCandidates.map(({ id }) => id),
+        newAmount,
+        correctionText: text
+      },
+      reply: `我找到不只一筆可能的紀錄：${describeCandidates(visibleCandidates)}。你要改哪一筆呢？`
     };
   }
 
@@ -184,6 +210,33 @@ function requestConfirmation(items, sourceText) {
 }
 
 function handlePendingConfirmation(text, pendingConfirmation, transactions, now) {
+  if (pendingConfirmation.mode === 'correction_candidate') {
+    if (CANCEL_WORDS.test(text)) {
+      return { kind: 'confirmation_cancelled', reply: '好，這次先不修改。' };
+    }
+    const candidates = pendingConfirmation.candidateIds
+      .map((id) => transactions.find((transaction) => transaction.id === id))
+      .filter(Boolean);
+    const selected = selectCorrectionCandidate(text, candidates);
+
+    if (!selected) {
+      return {
+        kind: 'clarification',
+        pendingConfirmation,
+        reply: `我還不確定你指哪一筆：${describeCandidates(candidates)}。可以回答「第一筆」或「第二筆」。`
+      };
+    }
+
+    const corrected = { ...selected, amount: pendingConfirmation.newAmount, updatedAt: now.toISOString() };
+    return {
+      kind: 'transaction_corrected',
+      transactions: transactions.map((transaction) => transaction.id === selected.id ? corrected : transaction),
+      transaction: corrected,
+      previousTransaction: selected,
+      reply: `已把「${corrected.title}」從 $${selected.amount} 改成 $${corrected.amount}，帳本和分析也一起更新了。`
+    };
+  }
+
   if (pendingConfirmation.mode === 'missing_amount') {
     if (CANCEL_WORDS.test(text)) {
       return { kind: 'confirmation_cancelled', reply: '好，這次先不記。' };

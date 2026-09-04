@@ -54,3 +54,25 @@ test('excludes reserved payments from the selected month flexible budget', () =>
   assert.equal(summary.flexibleExpenses, 180);
   assert.equal(summary.remaining, 4820);
 });
+
+test('summary comparisons and remaining days use the Taiwan calendar at month start', () => {
+  const originalTimeZone = process.env.TZ;
+  process.env.TZ = 'UTC';
+  try {
+    const summary = createFinanceSummary({
+      now: new Date('2026-09-01T00:30:00+08:00'),
+      monthlyBudget: 5000,
+      transactions: [
+        { id: 'august-first', type: 'expense', title: '早餐', amount: 60, date: '2026-08-01' },
+        { id: 'august-later', type: 'expense', title: '午餐', amount: 120, date: '2026-08-20' }
+      ]
+    });
+
+    assert.equal(summary.previousMonthKey, '2026-08');
+    assert.deepEqual(summary.previousComparable.map(({ id }) => id), ['august-first']);
+    assert.equal(summary.remainingDays, 30);
+  } finally {
+    if (originalTimeZone === undefined) delete process.env.TZ;
+    else process.env.TZ = originalTimeZone;
+  }
+});

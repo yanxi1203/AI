@@ -190,6 +190,18 @@ test('payment reminder appears five days before its due day', () => {
   assert.equal(shouldShowRecurringReminder(task, new Date('2026-08-15T12:00:00+08:00')), true);
 });
 
+test('completed monthly bill reminds for the next cycle across a month boundary', () => {
+  const task = {
+    kind: 'payment',
+    dueDay: 1,
+    enabled: true,
+    lastCompletedCycle: '2026-08'
+  };
+
+  assert.equal(shouldShowRecurringReminder(task, new Date('2026-08-26T12:00:00+08:00')), false);
+  assert.equal(shouldShowRecurringReminder(task, new Date('2026-08-27T12:00:00+08:00')), true);
+});
+
 test('matching a clear fixed-expense transaction finds its payment task', () => {
   const matches = findPaymentTaskMatches(
     { type: 'expense', title: '本月房租', amount: 8500, category: '固定支出' },
