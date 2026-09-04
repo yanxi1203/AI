@@ -59,15 +59,31 @@ function getItemHints(text) {
 }
 
 function describeCandidates(candidates) {
-  return candidates
+  const visible = candidates
     .slice(0, 3)
     .map((transaction) => `「${transaction.title}」$${transaction.amount}`)
     .join('、');
+  const remainingCount = Math.max(0, candidates.length - 3);
+  return remainingCount > 0 ? `${visible}，另外還有 ${remainingCount} 筆` : visible;
+}
+
+function parseChineseOrdinal(value) {
+  const digits = { 一: 1, 二: 2, 兩: 2, 三: 3, 四: 4, 五: 5, 六: 6, 七: 7, 八: 8, 九: 9 };
+  if (value === '十') return 10;
+  if (!value.includes('十')) return digits[value] || null;
+  const [tens, ones] = value.split('十');
+  return (digits[tens] || 1) * 10 + (digits[ones] || 0);
+}
+
+function getCorrectionOrdinalIndex(text) {
+  const numeric = text.match(/(?:第\s*)?(\d+)\s*筆/) || text.match(/^\s*(\d+)\s*$/);
+  const chinese = text.match(/(?:第\s*)?([一二兩三四五六七八九十]+)\s*筆/);
+  const ordinal = numeric ? Number(numeric[1]) : chinese ? parseChineseOrdinal(chinese[1]) : null;
+  return Number.isInteger(ordinal) && ordinal > 0 ? ordinal - 1 : null;
 }
 
 function selectCorrectionCandidate(text, candidates) {
-  const ordinal = text.match(/第?([一二兩])筆/);
-  const ordinalIndex = ordinal ? ({ 一: 0, 二: 1, 兩: 1 }[ordinal[1]]) : null;
+  const ordinalIndex = getCorrectionOrdinalIndex(text);
   if (ordinalIndex !== null) return candidates[ordinalIndex] || null;
 
   const normalizedReply = text.replace(/[\s，,。.!！?？]/g, '');
@@ -131,16 +147,15 @@ function handleCorrection(text, transactions, now) {
     };
   }
   if (candidates.length > 1) {
-    const visibleCandidates = candidates.slice(0, 3);
     return {
       kind: 'clarification',
       pendingConfirmation: {
         mode: 'correction_candidate',
-        candidateIds: visibleCandidates.map(({ id }) => id),
+        candidateIds: candidates.map(({ id }) => id),
         newAmount,
         correctionText: text
       },
-      reply: `我找到不只一筆可能的紀錄：${describeCandidates(visibleCandidates)}。你要改哪一筆呢？`
+      reply: `我找到不只一筆可能的紀錄：${describeCandidates(candidates)}。你要改哪一筆呢？`
     };
   }
 
