@@ -59,10 +59,64 @@ function getItemHints(text) {
 }
 
 function describeCandidates(candidates) {
-  return candidates
+  const visible = candidates
     .slice(0, 3)
     .map((transaction) => `「${transaction.title}」$${transaction.amount}`)
     .join('、');
+  const remainingCount = Math.max(0, candidates.length - 3);
+  return remainingCount > 0 ? `${visible}，另外還有 ${remainingCount} 筆` : visible;
+}
+
+function parseChineseOrdinal(value) {
+  const digits = { 一: 1, 二: 2, 兩: 2, 三: 3, 四: 4, 五: 5, 六: 6, 七: 7, 八: 8, 九: 9 };
+  if (value === '十') return 10;
+  if (!value.includes('十')) return digits[value] || null;
+  const [tens, ones] = value.split('十');
+  return (digits[tens] || 1) * 10 + (digits[ones] || 0);
+}
+
+function getCorrectionOrdinalIndex(text) {
+  const numeric = text.match(/(?:第\s*)?(\d+)\s*(?:筆|個|項)/);
+  const chinese = text.match(/(?:第\s*)?([一二兩三四五六七八九十]+)\s*(?:筆|個|項)/);
+  const ordinal = numeric ? Number(numeric[1]) : chinese ? parseChineseOrdinal(chinese[1]) : null;
+  return Number.isInteger(ordinal) && ordinal > 0 ? ordinal - 1 : null;
+}
+
+function selectCorrectionCandidateByAmount(text, candidates) {
+  const originalAmount = parseAmount(text);
+  const matches = originalAmount === null
+    ? []
+    : candidates.filter((candidate) => Number(candidate.amount) === originalAmount);
+  return {
+    selected: matches.length === 1 ? matches[0] : null,
+    matches
+  };
+}
+
+function selectCorrectionCandidate(text, candidates) {
+  const ordinalIndex = getCorrectionOrdinalIndex(text);
+  if (ordinalIndex !== null) {
+    const selected = candidates[ordinalIndex] || null;
+    return { selected, matches: selected ? [selected] : [] };
+  }
+
+  if (/^\s*[$＄]?\s*\d[\d,]*\s*(?:元|塊)?\s*$/.test(text)) {
+    return selectCorrectionCandidateByAmount(text, candidates);
+  }
+
+  const normalizedReply = text.replace(/[\s，,。.!！?？]/g, '');
+  const nameMatches = candidates.filter((candidate) => {
+    const normalizedTitle = candidate.title.replace(/\s/g, '');
+    return normalizedReply.includes(normalizedTitle) || normalizedTitle.includes(normalizedReply);
+  });
+  if (nameMatches.length) {
+    return {
+      selected: nameMatches.length === 1 ? nameMatches[0] : null,
+      matches: nameMatches
+    };
+  }
+
+  return selectCorrectionCandidateByAmount(text, candidates);
 }
 
 function findCorrectionCandidates(request, transactions) {
@@ -114,6 +168,12 @@ function handleCorrection(text, transactions, now) {
   if (candidates.length > 1) {
     return {
       kind: 'clarification',
+      pendingConfirmation: {
+        mode: 'correction_candidate',
+        candidateIds: candidates.map(({ id }) => id),
+        newAmount,
+        correctionText: text
+      },
       reply: `我找到不只一筆可能的紀錄：${describeCandidates(candidates)}。你要改哪一筆呢？`
     };
   }
@@ -184,6 +244,37 @@ function requestConfirmation(items, sourceText) {
 }
 
 function handlePendingConfirmation(text, pendingConfirmation, transactions, now) {
+  if (pendingConfirmation.mode === 'correction_candidate') {
+    if (CANCEL_WORDS.test(text)) {
+      return { kind: 'confirmation_cancelled', reply: '好，這次先不修改。' };
+    }
+    const candidates = pendingConfirmation.candidateIds
+      .map((id) => transactions.find((transaction) => transaction.id === id))
+      .filter(Boolean);
+    const { selected, matches } = selectCorrectionCandidate(text, candidates);
+
+    if (!selected) {
+      const clarificationCandidates = matches.length > 1 ? matches : candidates;
+      return {
+        kind: 'clarification',
+        pendingConfirmation: {
+          ...pendingConfirmation,
+          candidateIds: clarificationCandidates.map(({ id }) => id)
+        },
+        reply: `我還不確定你指哪一筆：${describeCandidates(clarificationCandidates)}。可以回答「第一筆／第二筆」、項目名稱或原本金額。`
+      };
+    }
+
+    const corrected = { ...selected, amount: pendingConfirmation.newAmount, updatedAt: now.toISOString() };
+    return {
+      kind: 'transaction_corrected',
+      transactions: transactions.map((transaction) => transaction.id === selected.id ? corrected : transaction),
+      transaction: corrected,
+      previousTransaction: selected,
+      reply: `已把「${corrected.title}」從 $${selected.amount} 改成 $${corrected.amount}，帳本和分析也一起更新了。`
+    };
+  }
+
   if (pendingConfirmation.mode === 'missing_amount') {
     if (CANCEL_WORDS.test(text)) {
       return { kind: 'confirmation_cancelled', reply: '好，這次先不記。' };
