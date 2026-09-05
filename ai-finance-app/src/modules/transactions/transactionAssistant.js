@@ -76,28 +76,47 @@ function parseChineseOrdinal(value) {
 }
 
 function getCorrectionOrdinalIndex(text) {
-  const numeric = text.match(/(?:第\s*)?(\d+)\s*筆/) || text.match(/^\s*(\d+)\s*$/);
-  const chinese = text.match(/(?:第\s*)?([一二兩三四五六七八九十]+)\s*筆/);
+  const numeric = text.match(/(?:第\s*)?(\d+)\s*(?:筆|個|項)/);
+  const chinese = text.match(/(?:第\s*)?([一二兩三四五六七八九十]+)\s*(?:筆|個|項)/);
   const ordinal = numeric ? Number(numeric[1]) : chinese ? parseChineseOrdinal(chinese[1]) : null;
   return Number.isInteger(ordinal) && ordinal > 0 ? ordinal - 1 : null;
 }
 
+function selectCorrectionCandidateByAmount(text, candidates) {
+  const originalAmount = parseAmount(text);
+  const matches = originalAmount === null
+    ? []
+    : candidates.filter((candidate) => Number(candidate.amount) === originalAmount);
+  return {
+    selected: matches.length === 1 ? matches[0] : null,
+    matches
+  };
+}
+
 function selectCorrectionCandidate(text, candidates) {
   const ordinalIndex = getCorrectionOrdinalIndex(text);
-  if (ordinalIndex !== null) return candidates[ordinalIndex] || null;
+  if (ordinalIndex !== null) {
+    const selected = candidates[ordinalIndex] || null;
+    return { selected, matches: selected ? [selected] : [] };
+  }
+
+  if (/^\s*[$＄]?\s*\d[\d,]*\s*(?:元|塊)?\s*$/.test(text)) {
+    return selectCorrectionCandidateByAmount(text, candidates);
+  }
 
   const normalizedReply = text.replace(/[\s，,。.!！?？]/g, '');
   const nameMatches = candidates.filter((candidate) => {
     const normalizedTitle = candidate.title.replace(/\s/g, '');
     return normalizedReply.includes(normalizedTitle) || normalizedTitle.includes(normalizedReply);
   });
-  if (nameMatches.length === 1) return nameMatches[0];
+  if (nameMatches.length) {
+    return {
+      selected: nameMatches.length === 1 ? nameMatches[0] : null,
+      matches: nameMatches
+    };
+  }
 
-  const originalAmount = parseAmount(text);
-  const amountMatches = originalAmount === null
-    ? []
-    : candidates.filter((candidate) => Number(candidate.amount) === originalAmount);
-  return amountMatches.length === 1 ? amountMatches[0] : null;
+  return selectCorrectionCandidateByAmount(text, candidates);
 }
 
 function findCorrectionCandidates(request, transactions) {
@@ -232,13 +251,17 @@ function handlePendingConfirmation(text, pendingConfirmation, transactions, now)
     const candidates = pendingConfirmation.candidateIds
       .map((id) => transactions.find((transaction) => transaction.id === id))
       .filter(Boolean);
-    const selected = selectCorrectionCandidate(text, candidates);
+    const { selected, matches } = selectCorrectionCandidate(text, candidates);
 
     if (!selected) {
+      const clarificationCandidates = matches.length > 1 ? matches : candidates;
       return {
         kind: 'clarification',
-        pendingConfirmation,
-        reply: `我還不確定你指哪一筆：${describeCandidates(candidates)}。可以回答「第一筆」或「第二筆」。`
+        pendingConfirmation: {
+          ...pendingConfirmation,
+          candidateIds: clarificationCandidates.map(({ id }) => id)
+        },
+        reply: `我還不確定你指哪一筆：${describeCandidates(clarificationCandidates)}。可以回答「第一筆／第二筆」、項目名稱或原本金額。`
       };
     }
 

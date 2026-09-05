@@ -212,6 +212,78 @@ test('a fourth correction candidate can be selected by its original amount', () 
   );
 });
 
+test('a fourth correction candidate can be selected by a number-only original amount', () => {
+  const transactions = createFourSimilarTransactions();
+  const question = processFinanceMessage({ text: '今天午餐改成130', transactions, now: NOW });
+  const resolved = processFinanceMessage({
+    text: '70',
+    transactions,
+    pendingConfirmation: question.pendingConfirmation,
+    now: NOW
+  });
+
+  assert.equal(resolved.kind, 'transaction_corrected');
+  assert.equal(resolved.transaction.id, 'tx_4');
+  assert.equal(resolved.transaction.amount, 130);
+  assert.deepEqual(
+    resolved.transactions.filter(({ id }) => id !== 'tx_4'),
+    transactions.filter(({ id }) => id !== 'tx_4')
+  );
+});
+
+test('a number-only reply prefers original amount over digits in an item name', () => {
+  const transactions = [
+    { id: 'tx_1', type: 'expense', title: '午餐70元套餐', amount: 110, category: '飲食', date: '2026-08-19' },
+    { id: 'tx_2', type: 'expense', title: '午餐飯糰', amount: 70, category: '飲食', date: '2026-08-19' }
+  ];
+  const question = processFinanceMessage({ text: '今天午餐改成130', transactions, now: NOW });
+  const resolved = processFinanceMessage({
+    text: '70',
+    transactions,
+    pendingConfirmation: question.pendingConfirmation,
+    now: NOW
+  });
+
+  assert.equal(resolved.kind, 'transaction_corrected');
+  assert.equal(resolved.transaction.id, 'tx_2');
+  assert.equal(resolved.transactions.find(({ id }) => id === 'tx_1').amount, 110);
+});
+
+test('a duplicated original amount asks again with only the matching candidates', () => {
+  const transactions = createFourSimilarTransactions().map((transaction) =>
+    transaction.id === 'tx_3' ? { ...transaction, amount: 70 } : transaction
+  );
+  const original = structuredClone(transactions);
+  const question = processFinanceMessage({ text: '今天午餐改成130', transactions, now: NOW });
+  const unresolved = processFinanceMessage({
+    text: '70',
+    transactions,
+    pendingConfirmation: question.pendingConfirmation,
+    now: NOW
+  });
+
+  assert.equal(unresolved.kind, 'clarification');
+  assert.deepEqual(unresolved.pendingConfirmation.candidateIds, ['tx_3', 'tx_4']);
+  assert.match(unresolved.reply, /午餐麵包/);
+  assert.match(unresolved.reply, /午餐飯糰/);
+  assert.doesNotMatch(unresolved.reply, /午餐便當/);
+  assert.deepEqual(transactions, original);
+  assert.equal('transactions' in unresolved, false);
+
+  const resolved = processFinanceMessage({
+    text: '午餐飯糰',
+    transactions,
+    pendingConfirmation: unresolved.pendingConfirmation,
+    now: NOW
+  });
+  assert.equal(resolved.kind, 'transaction_corrected');
+  assert.equal(resolved.transaction.id, 'tx_4');
+  assert.deepEqual(
+    resolved.transactions.filter(({ id }) => id !== 'tx_4'),
+    transactions.filter(({ id }) => id !== 'tx_4')
+  );
+});
+
 test('the second correction candidate can be selected by ordinal', () => {
   const transactions = [
     { id: 'tx_1', type: 'expense', title: '午餐便當', amount: 110, category: '飲食', date: '2026-08-19' },
@@ -258,6 +330,22 @@ test('the fourth correction candidate can be selected by a numeric ordinal', () 
   assert.equal(resolved.transaction.amount, 130);
 });
 
+test('explicit alternative ordinal wording selects the fourth correction candidate', () => {
+  for (const text of ['第4個', '第 4 項']) {
+    const transactions = createFourSimilarTransactions();
+    const question = processFinanceMessage({ text: '今天午餐改成130', transactions, now: NOW });
+    const resolved = processFinanceMessage({
+      text,
+      transactions,
+      pendingConfirmation: question.pendingConfirmation,
+      now: NOW
+    });
+
+    assert.equal(resolved.kind, 'transaction_corrected', text);
+    assert.equal(resolved.transaction.id, 'tx_4', text);
+  }
+});
+
 test('an invalid selection keeps all four correction candidates without changing records', () => {
   const transactions = createFourSimilarTransactions();
   const original = structuredClone(transactions);
@@ -272,6 +360,9 @@ test('an invalid selection keeps all four correction candidates without changing
   assert.equal(unresolved.kind, 'clarification');
   assert.deepEqual(unresolved.pendingConfirmation.candidateIds, ['tx_1', 'tx_2', 'tx_3', 'tx_4']);
   assert.match(unresolved.reply, /還有 1 筆/);
+  assert.match(unresolved.reply, /第一筆／第二筆/);
+  assert.match(unresolved.reply, /項目名稱/);
+  assert.match(unresolved.reply, /原本金額/);
   assert.deepEqual(transactions, original);
   assert.equal('transactions' in unresolved, false);
 });
