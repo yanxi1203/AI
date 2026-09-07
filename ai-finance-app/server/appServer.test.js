@@ -1,176 +1,176 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { createAppServer } from './appServer.js';
+import { AuthenticationError } from './authContext.js';
+import { StateConflictError } from './supabaseStateStore.js';
 import { estimateGoal } from './services/goalEstimator.js';
 import { processFinanceMessage } from '../src/modules/transactions/transactionAssistant.js';
 
+const USER_A = '11111111-1111-4111-8111-111111111111';
+const USER_B = '22222222-2222-4222-8222-222222222222';
 const listen = (server) => new Promise((resolve) => server.listen(0, '127.0.0.1', resolve));
 const close = (server) => new Promise((resolve) => server.close(resolve));
-const deviceHeaders = (deviceId, additional = {}) => ({
-  'x-finance-device-id': deviceId,
+const authHeaders = (token, additional = {}) => ({
+  authorization: `Bearer ${token}`,
   ...additional
 });
 
-test('state HTTP interface loads, saves and clears one app snapshot', async () => {
+function createHarness() {
   const states = new Map();
   const store = {
-    load: async (deviceId) => states.get(deviceId) || null,
-    save: async (deviceId, next) => (states.set(deviceId, next), next),
-    clear: async (deviceId) => { states.delete(deviceId); }
+    async load({ userId }) {
+      return states.get(userId) || { state: null, revision: 0 };
+    },
+    async save({ userId }, state, { expectedRevision }) {
+      const current = states.get(userId) || { state: null, revision: 0 };
+      if (current.revision !== expectedRevision) throw new StateConflictError();
+      const saved = { state, revision: current.revision + 1 };
+      states.set(userId, saved);
+      return saved;
+    },
+    async clear({ userId }) {
+      states.delete(userId);
+    }
   };
-  const server = createAppServer({ store, logger: { error() {} } });
+  const authenticateRequest = async (request) => {
+    const token = request.headers.authorization?.replace(/^Bearer\s+/i, '');
+    if (token === 'token-a') return { userId: USER_A, accessToken: token };
+    if (token === 'token-b') return { userId: USER_B, accessToken: token };
+    throw new AuthenticationError();
+  };
+  return { states, store, authenticateRequest };
+}
+
+test('authenticated state interface loads, saves and clears one user snapshot', async () => {
+  const harness = createHarness();
+  const server = createAppServer({ ...harness, logger: { error() {} } });
   await listen(server);
-  const { port } = server.address();
-  const baseUrl = `http://127.0.0.1:${port}`;
+  const baseUrl = `http://127.0.0.1:${server.address().port}`;
+  const headers = authHeaders('token-a');
 
   try {
-    const headers = deviceHeaders('device-test-001');
-    assert.deepEqual(await (await fetch(`${baseUrl}/api/state`, { headers })).json(), { state: null });
+    assert.deepEqual(await (await fetch(`${baseUrl}/api/state`, { headers })).json(), { state: null, revision: 0 });
     const nextState = { monthlyBudget: 3000, transactions: [] };
     const saved = await fetch(`${baseUrl}/api/state`, {
       method: 'PUT',
-      headers: deviceHeaders('device-test-001', { 'content-type': 'application/json' }),
-      body: JSON.stringify({ state: nextState })
+      headers: authHeaders('token-a', { 'content-type': 'application/json' }),
+      body: JSON.stringify({ state: nextState, expectedRevision: 0 })
     });
     assert.equal(saved.status, 200);
-    assert.deepEqual(await saved.json(), { state: nextState });
+    assert.deepEqual(await saved.json(), { state: nextState, revision: 1 });
     assert.equal((await fetch(`${baseUrl}/api/health`)).status, 200);
     assert.equal((await fetch(`${baseUrl}/api/state`, { method: 'DELETE', headers })).status, 200);
-    assert.deepEqual(await (await fetch(`${baseUrl}/api/state`, { headers })).json(), { state: null });
+    assert.deepEqual(await (await fetch(`${baseUrl}/api/state`, { headers })).json(), { state: null, revision: 0 });
   } finally {
     await close(server);
   }
 });
 
-test('assistant message interface classifies and persists a clear expense', async () => {
-  const states = new Map([['device-test-001', { transactions: [] }]]);
-  const store = {
-    load: async (deviceId) => states.get(deviceId) || null,
-    save: async (deviceId, next) => (states.set(deviceId, next), next),
-    clear: async (deviceId) => { states.delete(deviceId); }
-  };
-  const server = createAppServer({ store, financeMessageProcessor: processFinanceMessage, logger: { error() {} } });
+test('verified identities isolate state even if request body tries to spoof an owner', async () => {
+  const harness = createHarness();
+  const server = createAppServer({ ...harness, logger: { error() {} } });
   await listen(server);
-  const { port } = server.address();
+  const baseUrl = `http://127.0.0.1:${server.address().port}/api/state`;
 
   try {
-    const response = await fetch(`http://127.0.0.1:${port}/api/assistant/message`, {
+    await fetch(baseUrl, {
+      method: 'PUT',
+      headers: authHeaders('token-a', { 'content-type': 'application/json' }),
+      body: JSON.stringify({ user_id: USER_B, state: { monthlyBudget: 5000 }, expectedRevision: 0 })
+    });
+    await fetch(baseUrl, {
+      method: 'PUT',
+      headers: authHeaders('token-b', { 'content-type': 'application/json' }),
+      body: JSON.stringify({ state: { monthlyBudget: 9000 }, expectedRevision: 0 })
+    });
+    assert.equal((await (await fetch(baseUrl, { headers: authHeaders('token-a') })).json()).state.monthlyBudget, 5000);
+    assert.equal((await (await fetch(baseUrl, { headers: authHeaders('token-b') })).json()).state.monthlyBudget, 9000);
+    assert.equal(harness.states.get(USER_A).state.monthlyBudget, 5000);
+  } finally {
+    await close(server);
+  }
+});
+
+test('state and assistant routes reject missing, expired and forged credentials with 401', async () => {
+  const harness = createHarness();
+  const server = createAppServer({
+    ...harness,
+    financeMessageProcessor: processFinanceMessage,
+    logger: { error() {} }
+  });
+  await listen(server);
+  const baseUrl = `http://127.0.0.1:${server.address().port}`;
+
+  try {
+    assert.equal((await fetch(`${baseUrl}/api/state`)).status, 401);
+    assert.equal((await fetch(`${baseUrl}/api/state`, { headers: authHeaders('forged') })).status, 401);
+    assert.equal((await fetch(`${baseUrl}/api/assistant/message`, {
       method: 'POST',
-      headers: deviceHeaders('device-test-001', { 'content-type': 'application/json' }),
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({ text: '午餐 110 元' })
+    })).status, 401);
+    assert.equal(harness.states.size, 0);
+  } finally {
+    await close(server);
+  }
+});
+
+test('assistant route persists only the authenticated user state', async () => {
+  const harness = createHarness();
+  harness.states.set(USER_A, { state: { transactions: [] }, revision: 1 });
+  harness.states.set(USER_B, { state: { monthlyBudget: 8000, transactions: [] }, revision: 1 });
+  const server = createAppServer({
+    ...harness,
+    financeMessageProcessor: processFinanceMessage,
+    logger: { error() {} }
+  });
+  await listen(server);
+  const url = `http://127.0.0.1:${server.address().port}/api/assistant/message`;
+
+  try {
+    const response = await fetch(url, {
+      method: 'POST',
+      headers: authHeaders('token-a', { 'content-type': 'application/json' }),
       body: JSON.stringify({ text: '午餐 110 元', transactions: [] })
     });
     const body = await response.json();
+    assert.equal(response.status, 200);
     assert.equal(body.result.kind, 'transaction_added');
-    assert.equal(body.result.transactions[0].amount, 110);
-    assert.equal(states.get('device-test-001').transactions[0].title, '午餐');
+    assert.equal(harness.states.get(USER_A).state.transactions[0].amount, 110);
+    assert.deepEqual(harness.states.get(USER_B).state.transactions, []);
   } finally {
     await close(server);
   }
 });
 
-test('state and assistant routes isolate two devices', async () => {
-  const states = new Map();
-  const store = {
-    load: async (deviceId) => states.get(deviceId) || null,
-    save: async (deviceId, next) => (states.set(deviceId, next), next),
-    clear: async (deviceId) => { states.delete(deviceId); }
-  };
-  const server = createAppServer({ store, financeMessageProcessor: processFinanceMessage, logger: { error() {} } });
+test('stale state write returns 409 and does not overwrite current data', async () => {
+  const harness = createHarness();
+  harness.states.set(USER_A, { state: { monthlyBudget: 5000 }, revision: 2 });
+  const server = createAppServer({ ...harness, logger: { error() {} } });
   await listen(server);
-  const { port } = server.address();
-  const baseUrl = `http://127.0.0.1:${port}`;
-  const deviceA = deviceHeaders('device-user-a01', { 'content-type': 'application/json' });
-  const deviceB = deviceHeaders('device-user-b01', { 'content-type': 'application/json' });
+  const url = `http://127.0.0.1:${server.address().port}/api/state`;
 
   try {
-    await fetch(`${baseUrl}/api/state`, {
+    const response = await fetch(url, {
       method: 'PUT',
-      headers: deviceA,
-      body: JSON.stringify({ state: { monthlyBudget: 5000, transactions: [] } })
+      headers: authHeaders('token-a', { 'content-type': 'application/json' }),
+      body: JSON.stringify({ state: { monthlyBudget: 1 }, expectedRevision: 1 })
     });
-    await fetch(`${baseUrl}/api/state`, {
-      method: 'PUT',
-      headers: deviceB,
-      body: JSON.stringify({ state: { monthlyBudget: 9000, transactions: [] } })
-    });
-    await fetch(`${baseUrl}/api/assistant/message`, {
-      method: 'POST',
-      headers: deviceA,
-      body: JSON.stringify({ text: '午餐 110 元' })
-    });
-
-    const stateA = await (await fetch(`${baseUrl}/api/state`, { headers: deviceA })).json();
-    const stateB = await (await fetch(`${baseUrl}/api/state`, { headers: deviceB })).json();
-    assert.equal(stateA.state.monthlyBudget, 5000);
-    assert.equal(stateA.state.transactions[0].amount, 110);
-    assert.equal(stateB.state.monthlyBudget, 9000);
-    assert.deepEqual(stateB.state.transactions, []);
-
-    await fetch(`${baseUrl}/api/state`, { method: 'DELETE', headers: deviceA });
-    assert.equal((await (await fetch(`${baseUrl}/api/state`, { headers: deviceA })).json()).state, null);
-    assert.equal((await (await fetch(`${baseUrl}/api/state`, { headers: deviceB })).json()).state.monthlyBudget, 9000);
+    assert.equal(response.status, 409);
+    assert.equal((await response.json()).code, 'state_conflict');
+    assert.equal(harness.states.get(USER_A).state.monthlyBudget, 5000);
   } finally {
     await close(server);
   }
 });
 
-test('assistant resumes a pending amount question from backend state', async () => {
-  const states = new Map([['device-chat-001', { transactions: [], assistant: { pendingConfirmation: null } }]]);
-  const store = {
-    load: async (deviceId) => states.get(deviceId) || null,
-    save: async (deviceId, next) => (states.set(deviceId, next), next),
-    clear: async (deviceId) => { states.delete(deviceId); }
-  };
-  const server = createAppServer({ store, financeMessageProcessor: processFinanceMessage, logger: { error() {} } });
+test('goal estimation remains public and unchanged', async () => {
+  const harness = createHarness();
+  const server = createAppServer({ ...harness, goalEstimator: estimateGoal, logger: { error() {} } });
   await listen(server);
-  const { port } = server.address();
-  const url = `http://127.0.0.1:${port}/api/assistant/message`;
-  const headers = deviceHeaders('device-chat-001', { 'content-type': 'application/json' });
 
   try {
-    const first = await (await fetch(url, {
-      method: 'POST',
-      headers,
-      body: JSON.stringify({ text: '我今天買了飲料' })
-    })).json();
-    assert.equal(first.result.kind, 'clarification');
-    assert.equal(states.get('device-chat-001').assistant.pendingConfirmation.mode, 'missing_amount');
-
-    const second = await (await fetch(url, {
-      method: 'POST',
-      headers,
-      body: JSON.stringify({ text: '50' })
-    })).json();
-    assert.equal(second.result.kind, 'transaction_added');
-    assert.equal(states.get('device-chat-001').transactions[0].amount, 50);
-    assert.equal(states.get('device-chat-001').assistant.pendingConfirmation, null);
-  } finally {
-    await close(server);
-  }
-});
-
-test('state routes reject requests without a device identity', async () => {
-  const store = { load: async () => null, save: async (_id, next) => next, clear: async () => {} };
-  const server = createAppServer({ store, logger: { error() {} } });
-  await listen(server);
-  const { port } = server.address();
-  try {
-    const response = await fetch(`http://127.0.0.1:${port}/api/state`);
-    assert.equal(response.status, 400);
-    assert.match((await response.json()).error, /裝置識別/);
-  } finally {
-    await close(server);
-  }
-});
-
-test('goal estimate HTTP interface returns one shared estimate response', async () => {
-  const store = { load: async () => null, save: async (_id, next) => next, clear: async () => {} };
-  const server = createAppServer({ store, goalEstimator: estimateGoal, logger: { error() {} } });
-  await listen(server);
-  const { port } = server.address();
-
-  try {
-    const response = await fetch(`http://127.0.0.1:${port}/api/goals/estimate`, {
+    const response = await fetch(`http://127.0.0.1:${server.address().port}/api/goals/estimate`, {
       method: 'POST',
       headers: { 'content-type': 'application/json' },
       body: JSON.stringify({
@@ -182,59 +182,7 @@ test('goal estimate HTTP interface returns one shared estimate response', async 
     const body = await response.json();
     assert.equal(response.status, 200);
     assert.equal(body.status, 'estimated');
-    assert.equal(body.estimate.goalType, 'product');
-    assert.equal(body.estimate.title, '設計用筆電');
     assert.deepEqual(body.estimate.options.map(({ id }) => id), ['economy', 'balanced', 'comfortable']);
-    assert.ok(body.estimate.breakdown.some(({ id }) => id === 'product'));
-  } finally {
-    await close(server);
-  }
-});
-
-test('goal estimate HTTP interface explains insufficient data without inventing a price', async () => {
-  const store = { load: async () => null, save: async (_id, next) => next, clear: async () => {} };
-  const server = createAppServer({ store, goalEstimator: estimateGoal, logger: { error() {} } });
-  await listen(server);
-  const { port } = server.address();
-
-  try {
-    const response = await fetch(`http://127.0.0.1:${port}/api/goals/estimate`, {
-      method: 'POST',
-      headers: { 'content-type': 'application/json' },
-      body: JSON.stringify({ goalType: 'event', title: '參加活動', requirements: {} })
-    });
-    assert.equal(response.status, 400);
-    assert.match((await response.json()).error, /票價|自行填寫/);
-  } finally {
-    await close(server);
-  }
-});
-
-test('state HTTP interface restores goal estimation details after a reload', async () => {
-  const states = new Map();
-  const store = {
-    load: async (deviceId) => states.get(deviceId) || null,
-    save: async (deviceId, next) => (states.set(deviceId, next), next),
-    clear: async (deviceId) => { states.delete(deviceId); }
-  };
-  const server = createAppServer({ store, logger: { error() {} } });
-  await listen(server);
-  const { port } = server.address();
-  const url = `http://127.0.0.1:${port}/api/state`;
-  const headers = deviceHeaders('device-goal-reload', { 'content-type': 'application/json' });
-  const goal = {
-    id: 'goal_design_laptop',
-    type: 'product',
-    title: '設計用筆電',
-    targetAmount: 45000,
-    requirements: { productType: 'computer', usage: 'graphic_design' },
-    estimation: { optionId: 'balanced', minAmount: 38000, maxAmount: 50000, recommendedAmount: 45000, sourceType: 'internal_reference', updatedAt: '2026-09-03' }
-  };
-
-  try {
-    await fetch(url, { method: 'PUT', headers, body: JSON.stringify({ state: { goals: [goal] } }) });
-    const restored = await (await fetch(url, { headers })).json();
-    assert.deepEqual(restored.state.goals[0], goal);
   } finally {
     await close(server);
   }

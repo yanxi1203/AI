@@ -1,11 +1,8 @@
 import { createServer } from 'node:http';
-
-// The development runner watches this module and restarts the local API after changes.
+import { AuthenticationError } from './authContext.js';
+import { StateConflictError } from './supabaseStateStore.js';
 
 const MAX_BODY_BYTES = 1_000_000;
-const DEVICE_ID_HEADER = 'x-finance-device-id';
-const CLAIM_LEGACY_HEADER = 'x-finance-claim-legacy';
-const DEVICE_ID_PATTERN = /^[A-Za-z0-9_-]{8,80}$/;
 
 const sendJson = (response, status, body) => {
   response.writeHead(status, {
@@ -27,20 +24,23 @@ async function readJsonBody(request) {
   return JSON.parse(Buffer.concat(chunks).toString('utf8'));
 }
 
-const writesTransactions = (kind) => ['transaction_added', 'transactions_added', 'transaction_corrected'].includes(kind);
+const writesTransactions = (kind) =>
+  ['transaction_added', 'transactions_added', 'transaction_corrected'].includes(kind);
 
-const readDeviceContext = (request) => {
-  const deviceId = request.headers[DEVICE_ID_HEADER];
-  if (typeof deviceId !== 'string' || !DEVICE_ID_PATTERN.test(deviceId)) {
-    throw new TypeError('缺少有效的裝置識別');
+const requireAuthentication = async (request, authenticateRequest) => {
+  if (typeof authenticateRequest !== 'function') {
+    throw new Error('後端尚未設定 Supabase 登入驗證');
   }
-  return {
-    deviceId,
-    claimLegacy: request.headers[CLAIM_LEGACY_HEADER] === '1'
-  };
+  return authenticateRequest(request);
 };
 
-export function createAppServer({ store, financeMessageProcessor, goalEstimator, logger = console }) {
+export function createAppServer({
+  store,
+  authenticateRequest,
+  financeMessageProcessor,
+  goalEstimator,
+  logger = console
+}) {
   if (!store) throw new TypeError('store 為必填');
 
   return createServer(async (request, response) => {
@@ -53,48 +53,50 @@ export function createAppServer({ store, financeMessageProcessor, goalEstimator,
       }
 
       if (request.method === 'GET' && url.pathname === '/api/state') {
-        const { deviceId, claimLegacy } = readDeviceContext(request);
-        sendJson(response, 200, { state: await store.load(deviceId, { claimLegacy }) });
+        const auth = await requireAuthentication(request, authenticateRequest);
+        sendJson(response, 200, await store.load(auth));
         return;
       }
 
       if (request.method === 'PUT' && url.pathname === '/api/state') {
-        const { deviceId } = readDeviceContext(request);
+        const auth = await requireAuthentication(request, authenticateRequest);
         const body = await readJsonBody(request);
-        sendJson(response, 200, { state: await store.save(deviceId, body.state) });
+        const saved = await store.save(auth, body.state, { expectedRevision: body.expectedRevision });
+        sendJson(response, 200, saved);
         return;
       }
 
       if (request.method === 'DELETE' && url.pathname === '/api/state') {
-        const { deviceId } = readDeviceContext(request);
-        await store.clear(deviceId);
+        const auth = await requireAuthentication(request, authenticateRequest);
+        await store.clear(auth);
         sendJson(response, 200, { cleared: true });
         return;
       }
 
       if (request.method === 'POST' && url.pathname === '/api/assistant/message') {
-        const { deviceId, claimLegacy } = readDeviceContext(request);
+        const auth = await requireAuthentication(request, authenticateRequest);
         if (typeof financeMessageProcessor !== 'function') throw new Error('尚未設定自然語言處理模組');
         const body = await readJsonBody(request);
         if (typeof body.text !== 'string' || !body.text.trim()) throw new TypeError('text 為必填');
-        const currentState = await store.load(deviceId, { claimLegacy });
+
+        const current = await store.load(auth);
         const transactions = Array.isArray(body.transactions)
           ? body.transactions
-          : currentState?.transactions || [];
+          : current.state?.transactions || [];
         const result = financeMessageProcessor({
           text: body.text,
           transactions,
           pendingConfirmation: body.pendingConfirmation
-            || currentState?.assistant?.pendingConfirmation
+            || current.state?.assistant?.pendingConfirmation
             || null
         });
 
-        await store.save(deviceId, {
-          ...(currentState || {}),
+        const saved = await store.save(auth, {
+          ...(current.state || {}),
           transactions: writesTransactions(result.kind) ? result.transactions : transactions,
           assistant: { pendingConfirmation: result.pendingConfirmation || null }
-        });
-        sendJson(response, 200, { result });
+        }, { expectedRevision: current.revision });
+        sendJson(response, 200, { result, revision: saved.revision });
         return;
       }
 
@@ -113,9 +115,17 @@ export function createAppServer({ store, financeMessageProcessor, goalEstimator,
       sendJson(response, 404, { error: '找不到這個接口' });
     } catch (error) {
       const isBadRequest = error instanceof SyntaxError || error instanceof TypeError || error instanceof RangeError;
-      if (!isBadRequest) logger.error(error);
-      sendJson(response, isBadRequest ? 400 : 500, {
-        error: isBadRequest ? error.message : '伺服器暫時無法處理資料'
+      const status = error instanceof AuthenticationError
+        ? 401
+        : error instanceof StateConflictError
+          ? 409
+          : isBadRequest
+            ? 400
+            : 500;
+      if (status === 500) logger.error(error);
+      sendJson(response, status, {
+        error: status === 500 ? '伺服器暫時無法處理資料' : error.message,
+        ...(error.code ? { code: error.code } : {})
       });
     }
   });

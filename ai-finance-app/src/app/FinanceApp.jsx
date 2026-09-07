@@ -7,6 +7,7 @@ import SettingsPage from '../pages/SettingsPage';
 import GoalsPage from '../pages/GoalsPage';
 import CarrierPage from '../pages/CarrierPage';
 import OnboardingFlow from '../pages/OnboardingFlow';
+import AuthLoadingScreen from '../pages/AuthLoadingScreen';
 import { createFinanceSummary } from '../modules/finance/financeSummary';
 import {
   createFinancialSetup,
@@ -25,26 +26,7 @@ import { generateButlerChatReply } from '../utils/butlerEngine';
 import { clearAppState, createAppSnapshot, loadAppState, saveAppState } from '../modules/persistence/appStateClient';
 import { sendFinanceMessage } from '../modules/persistence/financeAssistantClient';
 import { createLatestSnapshotSaver } from '../modules/persistence/latestSnapshotSaver';
-import {
-  clearStoredAppData,
-  getStoredBudget,
-  getStoredEInvoiceBarcode,
-  getStoredGoals,
-  getStoredOnboardingCompleted,
-  getStoredRecurring,
-  getStoredSettings,
-  getStoredTheme,
-  getStoredTransactions,
-  normalizeSettings,
-  setStoredBudget,
-  setStoredEInvoiceBarcode,
-  setStoredGoals,
-  setStoredOnboardingCompleted,
-  setStoredRecurring,
-  setStoredSettings,
-  setStoredTheme,
-  setStoredTransactions
-} from '../utils/storage';
+import { createUserStorage, normalizeSettings } from '../utils/storage';
 import { getLocalDateKey } from '../utils/date';
 
 function plainButlerReply(reply) {
@@ -61,28 +43,28 @@ function paymentTasksToFixedItems(items) {
   }));
 }
 
-export default function FinanceApp() {
+export default function FinanceApp({ userId, accessToken }) {
+  const userStorage = useMemo(() => createUserStorage(userId), [userId]);
   const [activePage, setActivePage] = useState('home');
-  const [onboardingCompleted, setOnboardingCompleted] = useState(() =>
-    import.meta.env.DEV ? false : getStoredOnboardingCompleted()
-  );
-  const [onboardingSession, setOnboardingSession] = useState(0);
+  const [onboardingCompleted, setOnboardingCompleted] = useState(() => userStorage.getOnboardingCompleted());
+  const [onboardingSession] = useState(0);
   const [returnPage, setReturnPage] = useState('home');
-  const [theme, setTheme] = useState(getStoredTheme());
-  const [monthlyBudget, setMonthlyBudget] = useState(getStoredBudget());
-  const [settings, setSettings] = useState(getStoredSettings());
-  const [transactions, setTransactions] = useState(getStoredTransactions());
-  const [goals, setGoals] = useState(getStoredGoals());
-  const [barcode, setBarcode] = useState(getStoredEInvoiceBarcode());
+  const [theme, setTheme] = useState(() => userStorage.getTheme());
+  const [monthlyBudget, setMonthlyBudget] = useState(() => userStorage.getBudget());
+  const [settings, setSettings] = useState(() => userStorage.getSettings());
+  const [transactions, setTransactions] = useState(() => userStorage.getTransactions());
+  const [goals, setGoals] = useState(() => userStorage.getGoals());
+  const [barcode, setBarcode] = useState(() => userStorage.getBarcode());
   const [finReply, setFinReply] = useState('可以告訴我今天花了什麼、收到多少收入，或你想完成的夢想。');
   const [pendingConfirmation, setPendingConfirmation] = useState(null);
   const [paymentMatch, setPaymentMatch] = useState(null);
   const [goalDraft, setGoalDraft] = useState(null);
   const [goalGuideRequested, setGoalGuideRequested] = useState(false);
-  const [recurring, setRecurring] = useState(getStoredRecurring());
+  const [recurring, setRecurring] = useState(() => userStorage.getRecurring());
   const [persistenceReady, setPersistenceReady] = useState(false);
   const [backendStatus, setBackendStatus] = useState('connecting');
   const [uiNotice, setUiNotice] = useState(null);
+  const [persistenceConflict, setPersistenceConflict] = useState(false);
   const summary = useMemo(
     () => createFinanceSummary({ transactions, monthlyBudget, paymentTasks: recurring }),
     [transactions, monthlyBudget, recurring]
@@ -99,20 +81,23 @@ export default function FinanceApp() {
     pendingConfirmation
   }), [barcode, goals, monthlyBudget, onboardingCompleted, pendingConfirmation, recurring, settings, theme, transactions]);
   const initialSnapshot = useRef(appSnapshot);
-  const saveLatestSnapshot = useRef(null);
-  if (!saveLatestSnapshot.current) {
-    saveLatestSnapshot.current = createLatestSnapshotSaver(saveAppState);
-  }
+  const revisionRef = useRef(0);
+  const saveLatestSnapshot = useMemo(() => createLatestSnapshotSaver(async (snapshot) => {
+    const saved = await saveAppState(snapshot, {
+      accessToken,
+      expectedRevision: revisionRef.current
+    });
+    revisionRef.current = saved.revision;
+    return saved;
+  }), [accessToken]);
 
   useEffect(() => {
     let cancelled = false;
+    const controller = new AbortController();
 
     const hydrateFromBackend = async () => {
       try {
-        const remoteState = await loadAppState();
-        if (cancelled) return;
-
-        if (remoteState) {
+        const applyRemoteState = (remoteState) => {
           setMonthlyBudget(Number(remoteState.monthlyBudget || 0));
           setSettings(normalizeSettings(remoteState.settings));
           setTransactions(Array.isArray(remoteState.transactions) ? remoteState.transactions : []);
@@ -121,66 +106,67 @@ export default function FinanceApp() {
           setBarcode(typeof remoteState.barcode === 'string' ? remoteState.barcode : '');
           setTheme(['system', 'light', 'dark'].includes(remoteState.theme) ? remoteState.theme : 'system');
           setPendingConfirmation(remoteState.assistant?.pendingConfirmation || null);
-          if (!import.meta.env.DEV) {
-            setOnboardingCompleted(remoteState.onboardingCompleted === true);
-            setStoredOnboardingCompleted(remoteState.onboardingCompleted === true);
-          }
-        } else {
-          await saveLatestSnapshot.current(initialSnapshot.current);
-        }
+          setOnboardingCompleted(remoteState.onboardingCompleted === true);
+          userStorage.setOnboardingCompleted(remoteState.onboardingCompleted === true);
+        };
 
+        const remote = await loadAppState({ accessToken, signal: controller.signal });
+        if (cancelled) return;
+        revisionRef.current = Number(remote.revision || 0);
+
+        if (remote.state) {
+          applyRemoteState(remote.state);
+        } else {
+          try {
+            await saveLatestSnapshot(initialSnapshot.current);
+          } catch (error) {
+            if (error?.status !== 409) throw error;
+            const latest = await loadAppState({ accessToken, signal: controller.signal });
+            if (cancelled) return;
+            revisionRef.current = Number(latest.revision || 0);
+            if (latest.state) applyRemoteState(latest.state);
+          }
+        }
         if (!cancelled) setBackendStatus('connected');
-      } catch {
-        if (!cancelled) setBackendStatus('offline');
+      } catch (error) {
+        if (!cancelled && error?.name !== 'AbortError') setBackendStatus('offline');
       } finally {
         if (!cancelled) setPersistenceReady(true);
       }
     };
 
     hydrateFromBackend();
-    return () => { cancelled = true; };
-  }, []);
+    return () => {
+      cancelled = true;
+      controller.abort();
+      saveLatestSnapshot.cancel(new Error('使用者已切換'));
+    };
+  }, [accessToken, saveLatestSnapshot, userStorage]);
 
   useEffect(() => {
-    if (!persistenceReady) return undefined;
+    if (!persistenceReady || persistenceConflict) return undefined;
     const timer = setTimeout(() => {
-      saveLatestSnapshot.current(appSnapshot)
+      saveLatestSnapshot(appSnapshot)
         .then(() => setBackendStatus('connected'))
-        .catch(() => setBackendStatus('offline'));
+        .catch((error) => {
+          if (error?.status === 409) {
+            setBackendStatus('conflict');
+            setPersistenceConflict(true);
+            return;
+          }
+          if (!/已切換|已取消/.test(error?.message || '')) setBackendStatus('offline');
+        });
     }, 350);
     return () => clearTimeout(timer);
-  }, [appSnapshot, persistenceReady]);
+  }, [appSnapshot, persistenceConflict, persistenceReady, saveLatestSnapshot]);
 
-  useEffect(() => {
-    if (!import.meta.env.DEV) return undefined;
 
-    const restartPreviewOnUpdate = () => {
-      setTransactions(getStoredTransactions());
-      setGoals(getStoredGoals());
-      setRecurring(getStoredRecurring());
-      setBarcode(getStoredEInvoiceBarcode());
-      setMonthlyBudget(getStoredBudget());
-      setOnboardingCompleted(false);
-      setActivePage('home');
-      setReturnPage('home');
-      setPendingConfirmation(null);
-      setGoalDraft(null);
-      setGoalGuideRequested(false);
-      setOnboardingSession((current) => current + 1);
-      document.querySelector('.app-scroll')?.scrollTo({ top: 0 });
-    };
-
-    restartPreviewOnUpdate();
-    import.meta.hot?.on('vite:beforeUpdate', restartPreviewOnUpdate);
-    return () => import.meta.hot?.off('vite:beforeUpdate', restartPreviewOnUpdate);
-  }, []);
-
-  useEffect(() => setStoredTransactions(transactions), [transactions]);
-  useEffect(() => setStoredGoals(goals), [goals]);
-  useEffect(() => setStoredBudget(monthlyBudget), [monthlyBudget]);
-  useEffect(() => setStoredSettings(settings), [settings]);
-  useEffect(() => setStoredEInvoiceBarcode(barcode), [barcode]);
-  useEffect(() => setStoredRecurring(recurring), [recurring]);
+  useEffect(() => userStorage.setTransactions(transactions), [transactions, userStorage]);
+  useEffect(() => userStorage.setGoals(goals), [goals, userStorage]);
+  useEffect(() => userStorage.setBudget(monthlyBudget), [monthlyBudget, userStorage]);
+  useEffect(() => userStorage.setSettings(settings), [settings, userStorage]);
+  useEffect(() => userStorage.setBarcode(barcode), [barcode, userStorage]);
+  useEffect(() => userStorage.setRecurring(recurring), [recurring, userStorage]);
 
   useEffect(() => {
     const media = window.matchMedia('(prefers-color-scheme: dark)');
@@ -189,10 +175,10 @@ export default function FinanceApp() {
       document.documentElement.dataset.theme = resolved;
     };
     apply();
-    setStoredTheme(theme);
+    userStorage.setTheme(theme);
     media.addEventListener?.('change', apply);
     return () => media.removeEventListener?.('change', apply);
-  }, [theme]);
+  }, [theme, userStorage]);
 
   useEffect(() => {
     const textSize = settings.display?.textSize || 'system';
@@ -222,9 +208,19 @@ export default function FinanceApp() {
   const handleSendMessage = async (text) => {
     let result;
     try {
-      result = await sendFinanceMessage({ text, transactions, pendingConfirmation });
+      const response = await sendFinanceMessage(
+        { text, transactions, pendingConfirmation },
+        { accessToken }
+      );
+      result = response.result;
+      revisionRef.current = Number(response.revision ?? revisionRef.current);
       setBackendStatus('connected');
-    } catch {
+    } catch (error) {
+      if (error?.status === 401) {
+        setBackendStatus('unauthorized');
+        setFinReply('登入狀態已失效，請重新整理後再試一次。');
+        return;
+      }
       result = processFinanceMessage({ text, transactions, pendingConfirmation });
       setBackendStatus('offline');
     }
@@ -467,11 +463,11 @@ export default function FinanceApp() {
   const resetData = async () => {
     if (!window.confirm('確定要清除所有帳本、目標與設定嗎？這個動作無法復原。')) return;
     try {
-      await clearAppState();
+      await clearAppState({ accessToken });
     } catch {
-      window.alert('後端目前未連線；已清除瀏覽器內的資料，但伺服器資料尚未清除。');
+      window.alert('後端目前未連線；已清除此瀏覽器中目前使用者的資料，但伺服器資料尚未清除。');
     }
-    clearStoredAppData();
+    userStorage.clear();
     window.location.reload();
   };
 
@@ -481,7 +477,7 @@ export default function FinanceApp() {
     setMonthlyBudget(nextBudget);
     setRecurring(nextRecurring);
     setOnboardingCompleted(true);
-    setStoredOnboardingCompleted(true);
+    userStorage.setOnboardingCompleted(true);
     setActivePage('home');
   };
 
@@ -537,9 +533,11 @@ export default function FinanceApp() {
 
   const restartOnboarding = () => {
     setOnboardingCompleted(false);
-    setStoredOnboardingCompleted(false);
+    userStorage.setOnboardingCompleted(false);
     document.querySelector('.app-scroll')?.scrollTo({ top: 0 });
   };
+
+  if (!persistenceReady) return <AuthLoadingScreen />;
 
   if (!onboardingCompleted) {
     return (
@@ -569,6 +567,12 @@ export default function FinanceApp() {
           {activePage === 'carrier' && <CarrierPage barcode={barcode} onBack={() => navigate(returnPage)} onSaveBarcode={setBarcode} />}
         </div>
         {uiNotice && <div className="app-toast" role="status" aria-live="polite" key={uiNotice.id}>{uiNotice.message}</div>}
+        {persistenceConflict && (
+          <div className="persistence-conflict" role="alert">
+            <span>資料已在其他裝置更新，請重新載入最新資料。</span>
+            <button type="button" onClick={() => window.location.reload()}>重新載入</button>
+          </div>
+        )}
         <BottomNavigation activePage={navPage} onNavigate={navigate} />
       </section>
     </div>
