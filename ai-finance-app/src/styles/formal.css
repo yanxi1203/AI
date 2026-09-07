@@ -353,6 +353,12 @@ body { color: var(--text); font-size: calc(14px * var(--text-scale)); line-heigh
   color: var(--text);
 }
 .login-page {
+  --login-surface: #f4f7f2;
+  --login-primary-background: #456f5a;
+  --login-primary-text: #ffffff;
+  --login-note-text: #52675c;
+  --login-link-text: #4f6659;
+  --login-focus-ring: #244b38;
   display: grid;
   place-items: center;
   padding: max(12px, env(safe-area-inset-top)) 14px max(12px, env(safe-area-inset-bottom));
@@ -365,7 +371,7 @@ body { color: var(--text); font-size: calc(14px * var(--text-scale)); line-heigh
   grid-template-rows: minmax(270px, 42dvh) auto 1fr;
   align-content: stretch;
   border-radius: 34px;
-  background: #f4f7f2;
+  background: var(--login-surface);
   box-shadow: 0 20px 60px rgba(39,47,42,.12);
   overflow: hidden;
 }
@@ -426,14 +432,18 @@ body { color: var(--text); font-size: calc(14px * var(--text-scale)); line-heigh
   padding: 0 18px;
   border: 0;
   border-radius: 18px;
-  background: #5d8973;
-  color: #fff;
+  background: var(--login-primary-background);
+  color: var(--login-primary-text);
   font-size: 16px;
   font-weight: 720;
 }
 .login-primary > span { grid-column: 2; }
 .login-primary > svg { grid-column: 1; }
-.login-primary:disabled { opacity: .66; cursor: wait; }
+.login-primary:disabled { opacity: .62; cursor: wait; filter: saturate(.65); }
+.login-page button:focus-visible { outline-color: var(--login-focus-ring); outline-width: 3px; }
+@media (hover: hover) {
+  .login-primary:not(:disabled):hover { background: #3f654f; }
+}
 .login-error {
   padding: 9px 11px;
   border-radius: 12px;
@@ -450,7 +460,7 @@ body { color: var(--text); font-size: calc(14px * var(--text-scale)); line-heigh
   padding: 0 4px;
   border: 0;
   background: transparent;
-  color: #78857e;
+  color: var(--login-note-text);
   font-size: 12px;
   line-height: 1.45;
 }
@@ -460,7 +470,7 @@ body { color: var(--text); font-size: calc(14px * var(--text-scale)); line-heigh
   padding: 4px;
   border: 0;
   background: transparent;
-  color: #62786b;
+  color: var(--login-link-text);
   font-size: 12px;
   text-decoration: underline;
   text-underline-offset: 3px;
@@ -542,8 +552,16 @@ body { color: var(--text); font-size: calc(14px * var(--text-scale)); line-heigh
 }
 
 @media (prefers-color-scheme: dark) {
+  .login-page {
+    --login-surface: #202822;
+    --login-primary-background: #456f5a;
+    --login-primary-text: #ffffff;
+    --login-note-text: #b4c4bb;
+    --login-link-text: #b9c9c0;
+    --login-focus-ring: #c8d8cf;
+  }
   .login-page, .auth-loading { background: #18201b; }
-  .login-layout { background: #202822; }
+  .login-layout { background: var(--login-surface); }
   .login-visual { background: linear-gradient(145deg, #22372c, #393528); }
 }
 
