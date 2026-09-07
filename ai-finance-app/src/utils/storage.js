@@ -162,6 +162,73 @@ export const getStoredRecurring = () => {
 };
 export const setStoredRecurring = (items) => localStorage.setItem(KEYS.RECURRING, JSON.stringify(items));
 
+
+const AUTH_USER_ID_PATTERN = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
+
+export function createUserStorage(userId, { storage = globalThis.localStorage } = {}) {
+  if (!AUTH_USER_ID_PATTERN.test(userId || '')) throw new TypeError('userId 必須是有效的 UUID');
+  if (!storage) throw new TypeError('storage 為必填');
+
+  const prefix = `finmate:user:${userId}:`;
+  const key = (name) => prefix + name;
+  const readArray = (name) => {
+    const raw = storage.getItem(key(name));
+    if (!raw) return [];
+    try {
+      const parsed = JSON.parse(raw);
+      return Array.isArray(parsed) ? parsed : [];
+    } catch {
+      return [];
+    }
+  };
+  const writeJson = (name, value) => storage.setItem(key(name), JSON.stringify(value));
+
+  return {
+    getTheme: () => storage.getItem(key('theme')) || 'system',
+    setTheme: (theme) => storage.setItem(key('theme'), theme),
+    getBudget: () => {
+      const value = Number(storage.getItem(key('monthly_budget')));
+      return Number.isFinite(value) && value >= 0 ? value : 0;
+    },
+    setBudget: (budget) => storage.setItem(key('monthly_budget'), budget),
+    getSettings: () => {
+      const raw = storage.getItem(key('settings'));
+      if (!raw) return normalizeSettings();
+      try {
+        return normalizeSettings(JSON.parse(raw));
+      } catch {
+        return normalizeSettings();
+      }
+    },
+    setSettings: (settings) => writeJson('settings', settings),
+    getOnboardingCompleted: () => storage.getItem(key('onboarding_complete')) === 'true',
+    setOnboardingCompleted: (completed) => storage.setItem(key('onboarding_complete'), String(completed)),
+    getTransactions: () => readArray('transactions').filter((item) => !LEGACY_DEMO_TRANSACTION_IDS.has(item?.id)),
+    setTransactions: (transactions) => writeJson('transactions', transactions),
+    getGoals: () => readArray('dream_goals').filter((item) => !LEGACY_DEMO_GOAL_IDS.has(item?.id)),
+    setGoals: (goals) => writeJson('dream_goals', goals),
+    getRecurring: () => readArray('recurring')
+      .filter((item) => !LEGACY_DEMO_RECURRING_IDS.has(item?.id))
+      .map((item) => ({
+        ...item,
+        kind: item.kind || (item.dueDay ? 'payment' : 'template'),
+        isFixedExpense: item.isFixedExpense === true || Boolean(item.dueDay),
+        enabled: item.enabled !== false
+      })),
+    setRecurring: (items) => writeJson('recurring', items),
+    getBarcode: () => storage.getItem(key('einvoice')) || '',
+    setBarcode: (barcode) => storage.setItem(key('einvoice'), barcode),
+    clear: () => {
+      const keys = [];
+      for (let index = 0; index < storage.length; index += 1) {
+        const storedKey = storage.key(index);
+        if (storedKey?.startsWith(prefix)) keys.push(storedKey);
+      }
+      keys.forEach((storedKey) => storage.removeItem(storedKey));
+    }
+  };
+}
+
 export const clearStoredAppData = () => {
   Object.values(KEYS).forEach((key) => localStorage.removeItem(key));
 };

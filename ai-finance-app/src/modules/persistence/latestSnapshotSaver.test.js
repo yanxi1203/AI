@@ -56,3 +56,39 @@ test('snapshot saver continues with a newer snapshot after one save fails', asyn
 test('snapshot saver rejects an invalid persistence dependency', () => {
   assert.throws(() => createLatestSnapshotSaver(null), /saveSnapshot/);
 });
+
+
+test('snapshot saver cancels queued writes when the authenticated user changes', async () => {
+  const firstSave = deferred();
+  const persisted = [];
+  const saveLatest = createLatestSnapshotSaver(async (snapshot) => {
+    persisted.push(snapshot.version);
+    if (snapshot.version === 1) await firstSave.promise;
+    return snapshot;
+  });
+
+  const first = saveLatest({ version: 1 });
+  const queued = saveLatest({ version: 2 });
+  saveLatest.cancel(new Error('使用者已切換'));
+  firstSave.resolve();
+
+  assert.deepEqual(await first, { version: 1 });
+  await assert.rejects(queued, /使用者已切換/);
+  assert.deepEqual(persisted, [1]);
+});
+
+
+test('snapshot saver can resume after a Strict Mode effect cleanup', async () => {
+  const persisted = [];
+  const saveLatest = createLatestSnapshotSaver(async (snapshot) => {
+    persisted.push(snapshot);
+    return snapshot;
+  });
+
+  saveLatest.cancel(new Error('effect cleanup'));
+  assert.deepEqual(await saveLatest({ user: 'same-session', value: 2 }), {
+    user: 'same-session',
+    value: 2
+  });
+  assert.deepEqual(persisted, [{ user: 'same-session', value: 2 }]);
+});

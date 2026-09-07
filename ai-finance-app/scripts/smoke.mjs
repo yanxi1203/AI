@@ -1,9 +1,22 @@
+import { createClient } from '@supabase/supabase-js';
+
 const frontendUrl = process.env.FINANCE_FRONTEND_URL || 'http://127.0.0.1:5173';
 const apiUrl = process.env.FINANCE_API_URL || 'http://127.0.0.1:8787';
-const deviceId = `device-smoke-${Date.now().toString(36)}`;
+const supabaseUrl = process.env.SUPABASE_URL;
+const publishableKey = process.env.SUPABASE_PUBLISHABLE_KEY;
+
+if (!supabaseUrl || !publishableKey) {
+  throw new Error('smoke 需要 SUPABASE_URL 與 SUPABASE_PUBLISHABLE_KEY');
+}
+
+const supabase = createClient(supabaseUrl, publishableKey, {
+  auth: { persistSession: false, autoRefreshToken: false, detectSessionInUrl: false }
+});
+const { data, error } = await supabase.auth.signInAnonymously();
+if (error || !data.session) throw error || new Error('無法建立 smoke 訪客');
 const headers = {
   'content-type': 'application/json',
-  'x-finance-device-id': deviceId
+  authorization: `Bearer ${data.session.access_token}`
 };
 
 const expectOk = async (response, label) => {
@@ -19,6 +32,7 @@ try {
     method: 'PUT',
     headers,
     body: JSON.stringify({
+      expectedRevision: 0,
       state: {
         monthlyBudget: 5000,
         settings: { name: '測試管家' },

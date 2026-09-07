@@ -1,50 +1,50 @@
-# AI 財務管家
+# FinMate 財伴
 
-手機直式 Web App MVP。前端使用 React/Vite，後端使用 Node.js HTTP 模組；可使用 Supabase 雲端資料庫，未設定時則保存為本機 JSON 檔。
+手機優先的 AI 財務管家與記帳 Web App。前端使用 React/Vite，Node.js API 負責驗證 Supabase session 並透過 Row Level Security（RLS）存取使用者自己的資料。
 
-## 開啟方式
+## 本機啟動
 
-在專案資料夾執行：
+1. 將 `.env.example` 複製為 `.env.local`。
+2. 填入同一個 Supabase 專案的 URL 與 Publishable Key。
+3. 先在 Supabase SQL Editor 執行 `supabase/migrations/20260907_create_app_states_v2.sql`。
+4. 確認 Supabase Dashboard 已開啟 Allow anonymous sign-ins。
+5. 執行：
 
 ```powershell
 pnpm run dev
 ```
 
-這個指令會同時啟動前端與後端；修改後端程式時也會自動重啟：
-
 - 前端：`http://127.0.0.1:5173/`
 - 後端：`http://127.0.0.1:8787/`
 - 健康檢查：`http://127.0.0.1:8787/api/health`
-- 自然語言記帳：前端會透過 `/api/assistant/message` 交由後端判斷與保存。
-- 夢想費用估算：前端會透過 `/api/goals/estimate` 取得內建參考區間；後端離線時會明確標示為離線參考估算。
 
-也可以直接雙擊 `開啟網站.cmd`。關閉啟動視窗後，前後端都會停止。
+若缺少 Supabase 設定，登入頁與 Node API 會顯示明確的設定錯誤，不會退回未受保護的共用 JSON 儲存。
 
-## 資料保存
+## 登入與資料歸屬
 
-- 設定 Supabase 後，帳目、目標、固定支出、預算、載具號碼與管家設定會依瀏覽器裝置識別保存至 `app_states` 資料表。
-- 尚未設定 Supabase 時，後端會繼續保存至 `server/data/users/`，不影響本機展示。
-- 首次啟用 Supabase 時，若雲端尚無該裝置的資料，後端會將既有本機資料移轉至雲端。
-- 瀏覽器 `localStorage` 仍保留一份備援；後端離線時畫面仍可操作。
-- 目前仍是免登入、依裝置隔離的 MVP；真正跨裝置同步需要再加入 Supabase Auth。
-- `server/data/` 已排除版本控制，避免把個人財務資料提交到程式碼倉庫。
+- 第一版只提供「先以訪客身分體驗」，使用 Supabase Anonymous Sign-In 建立匿名使用者。
+- 每份 App 狀態以 `auth.users.id` 對應的 `user_id` 保存於 `app_states_v2`。
+- 前端 API 請求附帶使用者 access token；Node 驗證 token 後才建立 request-scoped Supabase client。
+- `app_states_v2` 的 RLS 限制每位使用者只能讀寫自己的資料。
+- 瀏覽器離線快取也以 `user_id` 分區，不會在 session 或遠端資料尚未完成載入時顯示上一位使用者的畫面。
+- 舊 `app_states` 表與其中資料不會自動認領、搬移或刪除。
 
-## Supabase 設定
+訪客 session 若仍保留在同一瀏覽器，可在重新開啟後恢復。清除瀏覽器資料、改用其他裝置或自行移除 session 後，可能無法回到同一個匿名帳號。
 
-1. 在 Supabase SQL Editor 執行 `supabase/migrations/20260827_create_app_states.sql`。
-2. 將 `.env.example` 複製為 `.env.local`。
-3. 填入 Supabase 專案的 `SUPABASE_URL` 與伺服器專用 `SUPABASE_SECRET_KEY`。
-4. 重新執行 `pnpm run dev`；後端會顯示目前使用 Supabase 或本機 JSON。
+## 金鑰安全
 
-`SUPABASE_SECRET_KEY` 只能存在後端的 `.env.local`，不能加上 `VITE_` 前綴，也不要放進簡報、截圖或前端程式碼。
+瀏覽器與一般 Node 使用者路由只使用 Supabase Publishable Key：
 
-## 夢想目標估算
+- `VITE_SUPABASE_URL`
+- `VITE_SUPABASE_PUBLISHABLE_KEY`
+- `SUPABASE_URL`
+- `SUPABASE_PUBLISHABLE_KEY`
 
-- 已知金額可直接選擇儲蓄速度，不會呼叫估算接口。
-- 不知道金額時，Fin 會依旅行、商品、活動、課程或自訂目標逐步詢問必要條件。
-- 旅行人數只用於住宿分攤；建立的目標金額是目前使用者個人要準備的金額。
-- 內建參考價格集中在 `server/data/goalEstimateReferences.js`，不是即時機票或購物報價。
-- 使用者最後按下「建立夢想目標」後，才會沿用既有 `goals` 與 App 狀態保存流程寫入資料。
+不得在前端、Git、簡報或截圖中放入 `secret`／`service_role` key。一般 `/api/state` 與 `/api/assistant/message` 路由也不使用它們。
+
+## 資料版本衝突
+
+`app_states_v2.revision` 使用 compare-and-swap 更新。舊版本寫入會收到 HTTP 409；前端停止自動重試並要求使用者重新載入最新資料，避免另一個分頁或裝置的更新被覆蓋。
 
 ## 驗證
 
@@ -52,29 +52,12 @@ pnpm run dev
 pnpm run verify
 ```
 
-`verify` 會依序執行完整測試、程式檢查與正式建置。
+`verify` 會依序執行全部 Node 測試、lint 與 production build。
 
-前後端已透過 `pnpm run dev` 啟動時，也可以執行：
+已套用 migration 且前後端正在執行時，可另跑：
 
 ```powershell
 pnpm run smoke
 ```
 
-這會用獨立的測試裝置資料確認首頁、健康檢查、AI 記帳與後端保存，完成後自動清除測試資料。
-
-# Vite 範本說明
-
-This template provides a minimal setup to get React working in Vite with HMR and some Oxlint rules.
-
-Currently, two official plugins are available:
-
-- [@vitejs/plugin-react](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react) uses [Oxc](https://oxc.rs)
-- [@vitejs/plugin-react-swc](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react-swc) uses [SWC](https://swc.rs/)
-
-## React Compiler
-
-The React Compiler is not enabled on this template because of its impact on dev & build performances. To add it, see [this documentation](https://react.dev/learn/react-compiler/installation).
-
-## Expanding the Oxlint configuration
-
-If you are developing a production application, we recommend using TypeScript with type-aware lint rules enabled. Check out the [TS template](https://github.com/vitejs/vite/tree/main/packages/create-vite/template-react-ts) for information on how to integrate TypeScript and Oxlint's TypeScript related rules in your project.
+冒煙測試會建立一次匿名測試帳號，驗證首頁、健康檢查、授權狀態保存、AI 記帳與讀回結果，最後清除該帳號的 App 狀態。

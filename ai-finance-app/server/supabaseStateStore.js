@@ -1,97 +1,107 @@
-import { createClient } from '@supabase/supabase-js';
-import { normalizeAppState, validateUserId } from './stateStore.js';
+import { createRequestScopedSupabaseClient } from './authContext.js';
+import { normalizeAppState } from './stateStore.js';
 
-const APP_STATE_TABLE = 'app_states';
+const APP_STATE_TABLE = 'app_states_v2';
+const UUID_PATTERN = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
+
+export class StateConflictError extends Error {
+  constructor() {
+    super('資料已在其他裝置更新，請重新載入最新資料。');
+    this.name = 'StateConflictError';
+    this.status = 409;
+    this.code = 'state_conflict';
+  }
+}
+
+const validateContext = (context) => {
+  if (!UUID_PATTERN.test(context?.userId || '')) throw new TypeError('使用者識別格式不正確');
+  if (!context?.accessToken) throw new TypeError('缺少使用者 access token');
+  return context;
+};
 
 const throwSupabaseError = (operation, error) => {
   if (!error) return;
+  if (error.code === '23505') throw new StateConflictError();
   const wrapped = new Error(`Supabase ${operation}失敗：${error.message || '未知錯誤'}`);
   wrapped.cause = error;
   throw wrapped;
 };
 
-const createServerClient = ({ url, secretKey }) => {
-  if (!url) throw new TypeError('SUPABASE_URL 為必填');
-  if (!secretKey) throw new TypeError('SUPABASE_SECRET_KEY 為必填');
+export function createSupabaseStateStore({
+  url,
+  publishableKey,
+  clientFactory,
+  now = () => new Date().toISOString()
+} = {}) {
+  const makeClient = clientFactory || (({ accessToken }) =>
+    createRequestScopedSupabaseClient({ url, publishableKey, accessToken }));
 
-  return createClient(url, secretKey, {
-    auth: {
-      autoRefreshToken: false,
-      persistSession: false,
-      detectSessionInUrl: false
-    }
-  });
-};
-
-export function createSupabaseStateStore({ url, secretKey, client, now = () => new Date().toISOString() } = {}) {
-  const supabase = client || createServerClient({ url, secretKey });
+  const clientFor = (context) => makeClient(validateContext(context));
 
   return {
-    async load(userId) {
-      const validUserId = validateUserId(userId);
-      const { data, error } = await supabase
+    async load(context) {
+      const { userId } = validateContext(context);
+      const { data, error } = await clientFor(context)
         .from(APP_STATE_TABLE)
-        .select('state')
-        .eq('device_id', validUserId)
+        .select('state, revision')
+        .eq('user_id', userId)
         .maybeSingle();
 
       throwSupabaseError('讀取', error);
-      return data?.state == null ? null : normalizeAppState(data.state, now);
+      if (!data) return { state: null, revision: 0 };
+      return {
+        state: normalizeAppState(data.state, now),
+        revision: Number(data.revision || 0)
+      };
     },
 
-    async save(userId, value) {
-      const validUserId = validateUserId(userId);
-      const state = normalizeAppState({ ...value, updatedAt: now() }, now);
-      const { data, error } = await supabase
+    async save(context, value, { expectedRevision } = {}) {
+      const { userId } = validateContext(context);
+      if (!Number.isInteger(expectedRevision) || expectedRevision < 0) {
+        throw new TypeError('expectedRevision 必須是非負整數');
+      }
+      const updatedAt = now();
+      const state = normalizeAppState({ ...value, updatedAt }, now);
+      const nextRevision = expectedRevision + 1;
+      const row = {
+        user_id: userId,
+        state,
+        schema_version: state.schemaVersion,
+        revision: nextRevision,
+        updated_at: updatedAt
+      };
+      const client = clientFor(context);
+
+      if (expectedRevision === 0) {
+        const { data, error } = await client
+          .from(APP_STATE_TABLE)
+          .insert(row)
+          .select('state, revision')
+          .single();
+        throwSupabaseError('保存', error);
+        return { state: normalizeAppState(data?.state || state, now), revision: Number(data?.revision || nextRevision) };
+      }
+
+      const { data, error } = await client
         .from(APP_STATE_TABLE)
-        .upsert({
-          device_id: validUserId,
-          state,
-          schema_version: state.schemaVersion,
-          updated_at: state.updatedAt
-        }, { onConflict: 'device_id' })
-        .select('state')
-        .single();
+        .update(row)
+        .eq('user_id', userId)
+        .eq('revision', expectedRevision)
+        .select('state, revision')
+        .maybeSingle();
 
       throwSupabaseError('保存', error);
-      return normalizeAppState(data?.state || state, now);
+      if (!data) throw new StateConflictError();
+      return { state: normalizeAppState(data.state, now), revision: Number(data.revision) };
     },
 
-    async clear(userId) {
-      const validUserId = validateUserId(userId);
-      const { error } = await supabase
+    async clear(context) {
+      const { userId } = validateContext(context);
+      const { error } = await clientFor(context)
         .from(APP_STATE_TABLE)
         .delete()
-        .eq('device_id', validUserId);
-
+        .eq('user_id', userId);
       throwSupabaseError('清除', error);
-    }
-  };
-}
-
-export function createMigratingStateStore({ primaryStore, legacyStore }) {
-  if (!primaryStore || !legacyStore) throw new TypeError('primaryStore 與 legacyStore 為必填');
-
-  return {
-    async load(userId, options) {
-      const cloudState = await primaryStore.load(userId, options);
-      if (cloudState) return cloudState;
-
-      const localState = await legacyStore.load(userId, options);
-      if (!localState) return null;
-
-      const migrated = await primaryStore.save(userId, localState);
-      await legacyStore.clear(userId);
-      return migrated;
-    },
-
-    async save(userId, value) {
-      return primaryStore.save(userId, value);
-    },
-
-    async clear(userId) {
-      await primaryStore.clear(userId);
-      await legacyStore.clear(userId);
     }
   };
 }
