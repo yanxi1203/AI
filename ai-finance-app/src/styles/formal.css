@@ -354,6 +354,9 @@ body { color: var(--text); font-size: calc(14px * var(--text-scale)); line-heigh
 }
 .login-page {
   --login-surface: #f4f7f2;
+  --login-visual-gradient-start: #e2f0e7;
+  --login-visual-gradient-end: #f5efdf;
+  --login-feature-text: #52675c;
   --login-primary-background: #456f5a;
   --login-primary-text: #ffffff;
   --login-note-text: #52675c;
@@ -379,7 +382,7 @@ body { color: var(--text); font-size: calc(14px * var(--text-scale)); line-heigh
   position: relative;
   min-height: 270px;
   padding: 26px;
-  background: linear-gradient(145deg, #e2f0e7, #f5efdf);
+  background: linear-gradient(145deg, var(--login-visual-gradient-start), var(--login-visual-gradient-end));
 }
 .login-brand {
   display: flex;
@@ -410,7 +413,7 @@ body { color: var(--text); font-size: calc(14px * var(--text-scale)); line-heigh
   box-shadow: 0 16px 34px rgba(80,105,90,.17);
 }
 .login-visual .fin-mascot__image { width: 119px; height: 119px; }
-.login-feature { position: absolute; color: #637269; }
+.login-feature { position: absolute; color: var(--login-feature-text); }
 .login-feature span { display: block; font-size: 13px; }
 .login-feature strong { display: block; margin-top: 3px; color: var(--text); font-size: 17px; }
 .login-feature--reminder { top: 92px; right: 27px; }
@@ -554,6 +557,9 @@ body { color: var(--text); font-size: calc(14px * var(--text-scale)); line-heigh
 @media (prefers-color-scheme: dark) {
   .login-page {
     --login-surface: #202822;
+    --login-visual-gradient-start: #22372c;
+    --login-visual-gradient-end: #393528;
+    --login-feature-text: #b4c4bb;
     --login-primary-background: #456f5a;
     --login-primary-text: #ffffff;
     --login-note-text: #b4c4bb;
@@ -562,7 +568,7 @@ body { color: var(--text); font-size: calc(14px * var(--text-scale)); line-heigh
   }
   .login-page, .auth-loading { background: #18201b; }
   .login-layout { background: var(--login-surface); }
-  .login-visual { background: linear-gradient(145deg, #22372c, #393528); }
+  .login-visual { background: linear-gradient(145deg, var(--login-visual-gradient-start), var(--login-visual-gradient-end)); }
 }
 
 .persistence-conflict {

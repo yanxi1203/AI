@@ -24,23 +24,33 @@ const tokenValues = (name) => [
 
 test('login text colors meet WCAG AA in light and dark themes', () => {
   const surfaces = tokenValues('--login-surface');
+  const visualGradientStarts = tokenValues('--login-visual-gradient-start');
+  const visualGradientEnds = tokenValues('--login-visual-gradient-end');
+  const featureTexts = tokenValues('--login-feature-text');
   const primaryBackgrounds = tokenValues('--login-primary-background');
   const primaryTexts = tokenValues('--login-primary-text');
   const noteTexts = tokenValues('--login-note-text');
   const linkTexts = tokenValues('--login-link-text');
 
   assert.equal(surfaces.length, 2, 'light and dark login surfaces are required');
+  assert.equal(visualGradientStarts.length, 2, 'light and dark visual gradient starts are required');
+  assert.equal(visualGradientEnds.length, 2, 'light and dark visual gradient ends are required');
+  assert.equal(featureTexts.length, 2, 'light and dark feature text colors are required');
   assert.equal(primaryBackgrounds.length, 2, 'light and dark primary backgrounds are required');
   assert.equal(primaryTexts.length, 2, 'light and dark primary text colors are required');
   assert.equal(noteTexts.length, 2, 'light and dark guest-note colors are required');
   assert.equal(linkTexts.length, 2, 'light and dark legal-link colors are required');
 
   surfaces.forEach((surface, index) => {
+    assert.ok(contrastRatio(featureTexts[index], visualGradientStarts[index]) >= 4.5);
+    assert.ok(contrastRatio(featureTexts[index], visualGradientEnds[index]) >= 4.5);
     assert.ok(contrastRatio(primaryTexts[index], primaryBackgrounds[index]) >= 4.5);
     assert.ok(contrastRatio(noteTexts[index], surface) >= 4.5);
     assert.ok(contrastRatio(linkTexts[index], surface) >= 4.5);
   });
 
+  assert.match(css, /\.login-visual\s*\{[^}]*background:\s*linear-gradient\([^)]*var\(--login-visual-gradient-start\)[^)]*var\(--login-visual-gradient-end\)/s);
+  assert.match(css, /\.login-feature\s*\{[^}]*color:\s*var\(--login-feature-text\)/s);
   assert.match(css, /\.login-primary\s*\{[^}]*background:\s*var\(--login-primary-background\)[^}]*color:\s*var\(--login-primary-text\)/s);
   assert.match(css, /\.login-guest-note\s*\{[^}]*color:\s*var\(--login-note-text\)/s);
   assert.match(css, /\.login-legal button\s*\{[^}]*color:\s*var\(--login-link-text\)/s);
