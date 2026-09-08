@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
 import {
   Barcode, Bell, Check, ChevronLeft, ChevronRight, Database, Download, Palette, Pencil, Plus, Repeat2,
-  RotateCcw, ShieldCheck, Tags, Target, Trash2, UserRound, Wallet, X
+  LogOut, RotateCcw, ShieldCheck, Tags, Target, Trash2, UserRound, Wallet, X
 } from 'lucide-react';
 import { exportTransactionsToCSV } from '../utils/csvExporter';
 import { createPaymentTask, isPaymentTask, isRecurringCompleted } from '../modules/finance/monthlyPlan';
@@ -22,13 +22,16 @@ const PANEL_TITLES = {
 export default function SettingsPage({
   theme, settings, recurring = [], monthlyBudget, transactions, backendStatus = 'offline',
   onThemeChange, onSettingsChange, onRecurringChange, onBudgetChange, onFinancialPlanChange,
-  onOpenGoals, onOpenCarrier, onPaymentAction, onRestartOnboarding, showOnboardingRestart = false, onResetData
+  onOpenGoals, onOpenCarrier, onPaymentAction, onRestartOnboarding, showOnboardingRestart = false, onResetData,
+  isAnonymous = false, userEmail = '', onSignOut
 }) {
   const [activePanel, setActivePanel] = useState(null);
   const [newCategory, setNewCategory] = useState('');
   const [recurringDraft, setRecurringDraft] = useState({ title: '', amount: '', dueDay: '', category: '固定支出' });
   const [recurringEditDraft, setRecurringEditDraft] = useState(null);
   const [allocationSaved, setAllocationSaved] = useState(false);
+  const [signingOut, setSigningOut] = useState(false);
+  const [signOutMessage, setSignOutMessage] = useState('');
   const [allocationDraft, setAllocationDraft] = useState(() => ({
     monthlyIncome: String(settings.profile?.monthlyIncome || ''),
     incomeUnknown: settings.profile?.incomeUnknown === true,
@@ -37,7 +40,7 @@ export default function SettingsPage({
   const butlerName = settings.name || 'Fin';
   const allocationPending = settings.allocation?.status === 'pending-income' || settings.profile?.incomeUnknown === true;
   const persistenceLabel = backendStatus === 'connected'
-    ? '已儲存在這台電腦'
+    ? '已同步至你的 FinMate 帳號'
     : backendStatus === 'connecting'
       ? '正在保存資料'
       : '目前只暫存在這個瀏覽器';
@@ -119,6 +122,18 @@ export default function SettingsPage({
     setAllocationSaved(true);
   };
 
+  const handleSignOut = async () => {
+    if (!onSignOut || signingOut) return;
+    setSigningOut(true);
+    setSignOutMessage('');
+    try {
+      await onSignOut();
+    } catch (error) {
+      setSignOutMessage(error?.message || '登出失敗，請稍後再試。');
+      setSigningOut(false);
+    }
+  };
+
   return (
     <main className={`page settings-page ${activePanel ? 'is-detail' : ''}`}>
       <header className="settings-hero"><span>設定</span><h1>把這裡調成你習慣的樣子。</h1><p>外觀、記帳規則與 {butlerName}，都可以慢慢調整。</p></header>
@@ -149,6 +164,12 @@ export default function SettingsPage({
         </SettingsSection>
 
         <SettingsSection title="我的資料" hint="管理與安全">
+          <div className="account-summary">
+            <span className="soft-icon"><UserRound size={18} /></span>
+            <div><strong>{isAnonymous ? '訪客模式' : '已登入 FinMate'}</strong><p>{isAnonymous ? '資料屬於這個匿名帳號，請避免清除瀏覽器資料。' : (userEmail || '你的帳號資料會安全分開保存。')}</p></div>
+          </div>
+          {!isAnonymous && onSignOut && <button type="button" className="sign-out-button" onClick={handleSignOut} disabled={signingOut}><LogOut size={17} />{signingOut ? '正在登出…' : '登出帳號'}</button>}
+          {signOutMessage && <p className="settings-error" role="alert">{signOutMessage}</p>}
           <SettingRow icon={Barcode} title="電子發票載具" detail="顯示與管理手機條碼" tone="peach" onClick={onOpenCarrier} />
           <SettingRow icon={Database} title="資料保存與帳本" detail={persistenceLabel} onClick={() => openPanel('data')} />
           <SettingRow icon={Download} title="資料備份與匯出" detail="下載完整 CSV 紀錄" tone="lilac" onClick={() => openPanel('export')} />
@@ -213,11 +234,11 @@ export default function SettingsPage({
             <p className="settings-help">這只調整管家的語氣，不會改變記帳判斷與你的帳目。</p>
           </div>}
 
-          {activePanel === 'data' && <div className="data-summary"><div><span>交易紀錄</span><strong>{transactions.length} 筆</strong></div><div><span>資料狀態</span><strong>{backendStatus === 'connected' ? '已保存' : '瀏覽器暫存'}</strong></div><button type="button" onClick={() => exportTransactionsToCSV(transactions)}><Download size={15} />下載帳本</button><p className="settings-help">{persistenceLabel}。目前尚未登入雲端帳號，換手機不會自動帶入。</p></div>}
+          {activePanel === 'data' && <div className="data-summary"><div><span>交易紀錄</span><strong>{transactions.length} 筆</strong></div><div><span>資料狀態</span><strong>{backendStatus === 'connected' ? '已保存' : '瀏覽器暫存'}</strong></div><button type="button" onClick={() => exportTransactionsToCSV(transactions)}><Download size={15} />下載帳本</button><p className="settings-help">{isAnonymous ? '目前使用訪客帳號；換裝置或清除瀏覽器資料後，可能無法回到同一份資料。' : '資料會依登入帳號分開保存；重新登入同一帳號即可取回。'}</p></div>}
 
           {activePanel === 'export' && <div className="export-settings"><strong>先留一份自己的帳本</strong><p>會把目前全部交易整理成 CSV 檔，可使用 Excel、Numbers 或 Google 試算表開啟。</p><button type="button" onClick={() => exportTransactionsToCSV(transactions)}><Download size={15} />匯出 {transactions.length} 筆紀錄</button><small>目前只匯出帳目；夢想目標與管家設定之後可再加入完整備份。</small></div>}
 
-          {activePanel === 'privacy' && <div className="privacy-copy"><strong>目前只儲存在這台裝置</strong><p>帳目、目標與設定會保存在這台電腦，也會留在這個瀏覽器中。目前沒有登入或雲端同步，換手機不會自動帶入；正式上架前會再加入帳號、加密與備份說明。</p></div>}
+          {activePanel === 'privacy' && <div className="privacy-copy"><strong>{isAnonymous ? '訪客資料說明' : '帳號資料說明'}</strong><p>{isAnonymous ? '帳目、目標與設定屬於目前的匿名帳號。請勿登出或清除瀏覽器資料，以免無法回到同一個訪客帳號。' : '帳目、目標與設定會依目前登入帳號保存，其他使用者無法讀取。Email 與密碼驗證由 Supabase Auth 處理。'}</p></div>}
         </section>}
       </div>
     </main>

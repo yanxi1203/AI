@@ -13,3 +13,13 @@ test('server requires only the public Supabase key for normal user routes', () =
   });
   assert.throws(() => readServerConfig({ SUPABASE_URL: 'https://example.supabase.co' }), /PUBLISHABLE/);
 });
+
+test('server accepts the same public key name used by Vite during local development', () => {
+  assert.deepEqual(readServerConfig({
+    SUPABASE_URL: 'https://example.supabase.co',
+    VITE_SUPABASE_PUBLISHABLE_KEY: 'sb_publishable_vite'
+  }), {
+    supabaseUrl: 'https://example.supabase.co',
+    supabasePublishableKey: 'sb_publishable_vite'
+  });
+});

@@ -14,7 +14,10 @@ export default function AuthProvider({ children, client = supabaseBrowserClient 
 
   const value = useMemo(() => ({
     ...auth,
-    signInAsGuest: controller.signInAsGuest
+    signInAsGuest: controller.signInAsGuest,
+    signInWithPassword: controller.signInWithPassword,
+    signUpWithPassword: controller.signUpWithPassword,
+    signOut: controller.signOut
   }), [auth, controller]);
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;

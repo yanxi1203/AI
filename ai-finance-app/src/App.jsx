@@ -15,6 +15,8 @@ function AuthenticatedApp() {
       <LoginPage
         status={auth.status}
         message={auth.message}
+        onSignIn={auth.signInWithPassword}
+        onSignUp={auth.signUpWithPassword}
         onContinueAsGuest={auth.signInAsGuest}
       />
     );
@@ -26,6 +28,9 @@ function AuthenticatedApp() {
       key={userId}
       userId={userId}
       accessToken={auth.session.access_token}
+      isAnonymous={auth.session.user.is_anonymous === true}
+      userEmail={auth.session.user.email || ''}
+      onSignOut={auth.signOut}
     />
   );
 }
