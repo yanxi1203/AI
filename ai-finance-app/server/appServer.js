@@ -52,8 +52,17 @@ export function createAppHandler({
 
   return async function appHandler(request, response) {
     try {
-      const url = new URL(request.url, 'http://127.0.0.1');
+      const rawPath = request.headers?.['x-matched-path'] || request.url;
+      const url = new URL(rawPath, 'http://127.0.0.1');
       let pathname = url.pathname;
+      if (pathname.includes('[...route]') || pathname.includes('[...slug]')) {
+        const queryRoute = request.query?.route || request.query?.match || request.query?.['0']
+          || url.searchParams.get('route') || url.searchParams.get('match') || url.searchParams.get('0');
+        if (queryRoute) {
+          const routeStr = Array.isArray(queryRoute) ? queryRoute.join('/') : queryRoute;
+          pathname = `/api/${routeStr.replace(/^\/+/, '')}`;
+        }
+      }
       if (!pathname.startsWith('/api')) {
         pathname = `/api${pathname.startsWith('/') ? '' : '/'}${pathname}`;
       }
