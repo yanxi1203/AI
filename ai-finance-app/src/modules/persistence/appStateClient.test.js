@@ -21,8 +21,10 @@ test('state client authorizes every request and preserves revision metadata', as
     revision: 2
   });
   const pendingConfirmation = { mode: 'missing_amount', item: { title: '飲料' } };
-  const snapshot = createAppSnapshot({ monthlyBudget: 0, transactions: [], onboardingCompleted: false, pendingConfirmation });
+  const goals = [{ id: 'goal_trip', title: '日本旅行', targetAmount: 30000, savedAmount: 10000 }];
+  const snapshot = createAppSnapshot({ monthlyBudget: 0, transactions: [], goals, onboardingCompleted: false, pendingConfirmation });
   assert.deepEqual(snapshot.assistant.pendingConfirmation, pendingConfirmation);
+  assert.deepEqual(snapshot.goals, goals);
   assert.equal((await saveAppState(snapshot, {
     fetchImpl,
     accessToken: 'jwt-a',

@@ -4,7 +4,7 @@ const positiveNumber = (value) => Math.max(0, Number(value || 0));
 const PAYMENT_KEYWORDS = ['房租', '水費', '電費', '瓦斯', '網路', '手機', '電信', '學費', '管理費', '訂閱', '保險', '信用卡'];
 const DAY_IN_MILLISECONDS = 24 * 60 * 60 * 1000;
 
-function getMonthlyDueDistance(item, now) {
+export function getPaymentDueDistance(item, now = new Date()) {
   const [todayYear, todayMonth, todayDay] = getLocalDateKey(now).split('-').map(Number);
   const currentCycleCompleted = isRecurringCompleted(item, now);
   const targetMonthIndex = todayMonth - 1 + (currentCycleCompleted ? 1 : 0);
@@ -64,7 +64,7 @@ export function shouldShowRecurringReminder(item, now = new Date()) {
   if (item.skippedOn === getLocalDateKey(now)) return false;
   if (!isPaymentTask(item)) return !isRecurringCompleted(item, now);
   if (!item.dueDay) return false;
-  const daysUntilDue = getMonthlyDueDistance(item, now);
+  const daysUntilDue = getPaymentDueDistance(item, now);
   return daysUntilDue >= 0 && daysUntilDue <= 5;
 }
 

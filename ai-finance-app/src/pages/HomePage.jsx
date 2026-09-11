@@ -36,16 +36,22 @@ export default function HomePage({
   onOpenSettings
 }) {
   const [input, setInput] = useState('');
+  const [isSending, setIsSending] = useState(false);
   const [isListening, setIsListening] = useState(false);
   const [voiceMessage, setVoiceMessage] = useState('');
   const [homeView, setHomeView] = useState('records');
   const [showNotifications, setShowNotifications] = useState(false);
 
-  const submit = () => {
-    const text = input.trim();
-    if (!text) return;
-    onSendMessage(text);
+  const submit = async (question = input) => {
+    const text = String(question || '').trim();
+    if (!text || isSending) return;
     setInput('');
+    setIsSending(true);
+    try {
+      await onSendMessage(text);
+    } finally {
+      setIsSending(false);
+    }
   };
 
   const startVoice = () => {
@@ -147,22 +153,39 @@ export default function HomePage({
               id="finance-input"
               value={input}
               onChange={(event) => setInput(event.target.value)}
-              onKeyDown={(event) => event.key === 'Enter' && submit()}
+              onKeyDown={(event) => {
+                if (event.key === 'Enter') {
+                  event.preventDefault();
+                  submit();
+                }
+              }}
               placeholder={assistantInputCopy.placeholder}
               aria-label={assistantInputCopy.inputLabel}
               autoComplete="off"
+              disabled={isSending}
             />
-            <button type="button" className={isListening ? 'is-listening' : ''} onClick={startVoice} aria-label="使用語音輸入">
+            <button type="button" className={isListening ? 'is-listening' : ''} onClick={startVoice} disabled={isSending} aria-label="使用語音輸入">
               <Mic size={17} />
             </button>
-            <button type="button" className="quick-entry__send" onClick={submit} disabled={!input.trim()} aria-label={assistantInputCopy.sendLabel}>
+            <button type="button" className="quick-entry__send" onClick={() => submit()} disabled={!input.trim() || isSending} aria-label={assistantInputCopy.sendLabel}>
               <Send size={17} />
             </button>
           </div>
+          <div className="finance-quick-questions" aria-label="快速財務問題">
+            {[
+              '我今天還能花多少？',
+              '這個月錢都花去哪了？',
+              '下一筆要付什麼？'
+            ].map((question) => (
+              <button type="button" key={question} onClick={() => submit(question)} disabled={isSending}>
+                {question}
+              </button>
+            ))}
+          </div>
           {voiceMessage && <p className="voice-status" aria-live="polite">{voiceMessage}</p>}
-          <div className="fin-result" aria-live="polite">
+          <div className={`fin-result${isSending ? ' is-loading' : ''}`} aria-live="polite" aria-busy={isSending}>
             <i />
-            <p><strong>{butlerName}</strong>{finReply}</p>
+            <p><strong>{butlerName}</strong>{isSending ? '正在整理你的財務資料…' : finReply}</p>
           </div>
           {pendingConfirmation?.mode === 'confirmation' && <div className="fin-confirm-actions">
             <button type="button" onClick={() => onResolvePending(true)}>是，幫我記下</button>

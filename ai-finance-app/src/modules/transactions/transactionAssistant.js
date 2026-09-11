@@ -4,10 +4,22 @@ import { parseNaturalLanguageInput } from '../../utils/nlpParser.js';
 const CORRECTION_WORDS = /(更正|修正|修改|改成|改為|不是.+(?:是|而是)|應該是|才對)/;
 const ACCOUNTING_COMMAND_WORDS = /(記帳|幫我記|記一下|記錄|加入帳本)/;
 const TRANSACTION_WORDS = /(花(?:費)?了|刷了|買了|吃了|搭了|領了|領到|收到|獲得|付了|繳了|退款|退費|儲值|課金)/;
-const QUICK_ITEM_WORDS = /(早餐|午餐|晚餐|宵夜|飲料|咖啡|便當|公車|捷運|車資|遊戲|儲值|課金|房租|水費|電費|網路費|信用卡)/;
+const QUICK_ITEM_WORDS = /(早餐|午餐|晚餐|宵夜|飲料|咖啡|便當|公車|捷運|車資|電影|遊戲|儲值|課金|房租|水費|電費|網路費|信用卡|衣服|上衣|褲子|外套|鞋子|球鞋|洋裝)/;
 const RELATIVE_TARGET_WORDS = /(剛剛|剛才|上一筆|那筆)/;
 const CONFIRM_WORDS = /^(對|是|沒錯|正確|可以|好|好的|幫我記|記下|確認)$/;
 const CANCEL_WORDS = /^(不是|不對|先不要|不要|取消|算了)$/;
+
+function formatTransactionMeta(transaction, { includeCategory = true } = {}) {
+  const match = String(transaction?.date || '').match(/^(\d{4})-(\d{2})-(\d{2})$/);
+  const dateLabel = match ? `${Number(match[2])}/${Number(match[3])}` : String(transaction?.date || '');
+  return includeCategory && transaction?.category
+    ? `${dateLabel} · ${transaction.category}`
+    : dateLabel;
+}
+
+function withTransactionMeta(message, transaction, options) {
+  return `${message}\n${formatTransactionMeta(transaction, options)}`;
+}
 
 function parseAmount(value) {
   if (!value) return null;
@@ -297,7 +309,7 @@ function handlePendingConfirmation(text, pendingConfirmation, transactions, now)
       kind: 'transaction_added',
       transactions: [transaction, ...transactions],
       transaction,
-      reply: `收到，已記下「${transaction.title}」$${transaction.amount}。`
+      reply: withTransactionMeta(`收到，已記下「${transaction.title}」$${transaction.amount}。`, transaction)
     };
   }
 
@@ -324,8 +336,8 @@ function handlePendingConfirmation(text, pendingConfirmation, transactions, now)
       transaction: created[0],
       addedTransactions: created,
       reply: created.length > 1
-        ? `好了，${created.length} 筆都記下來了。`
-        : `已記下「${created[0].title}」$${created[0].amount}。`
+        ? withTransactionMeta(`好了，${created.length} 筆都記下來了。`, created[0], { includeCategory: false })
+        : withTransactionMeta(`已記下「${created[0].title}」$${created[0].amount}。`, created[0])
     };
   }
   if (CANCEL_WORDS.test(text)) {
@@ -397,6 +409,6 @@ export function processFinanceMessage({ text, transactions, pendingConfirmation 
     kind: 'transaction_added',
     transactions: [transaction, ...transactions],
     transaction,
-    reply: `已記下「${transaction.title}」$${transaction.amount}。如果有記錯，直接告訴我改成多少就可以。`
+    reply: withTransactionMeta(`已記下「${transaction.title}」$${transaction.amount}。如果有記錯，直接告訴我改成多少就可以。`, transaction)
   };
 }

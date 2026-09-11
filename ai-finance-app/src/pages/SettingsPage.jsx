@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
 import {
   Barcode, Bell, Check, ChevronLeft, ChevronRight, Database, Download, Palette, Pencil, Plus, Repeat2,
-  LogOut, RotateCcw, ShieldCheck, Tags, Target, Trash2, UserRound, Wallet, X
+  LogOut, ShieldCheck, Tags, Target, Trash2, UserRound, Wallet, X
 } from 'lucide-react';
 import { exportTransactionsToCSV } from '../utils/csvExporter';
 import { createPaymentTask, isPaymentTask, isRecurringCompleted } from '../modules/finance/monthlyPlan';
@@ -22,7 +22,7 @@ const PANEL_TITLES = {
 export default function SettingsPage({
   theme, settings, recurring = [], monthlyBudget, transactions, backendStatus = 'offline',
   onThemeChange, onSettingsChange, onRecurringChange, onBudgetChange, onFinancialPlanChange,
-  onOpenGoals, onOpenCarrier, onPaymentAction, onRestartOnboarding, showOnboardingRestart = false, onResetData,
+  onOpenGoals, onOpenCarrier, onPaymentAction, onResetData,
   isAnonymous = false, userEmail = '', onSignOut
 }) {
   const [activePanel, setActivePanel] = useState(null);
@@ -146,7 +146,6 @@ export default function SettingsPage({
             <span className="appearance-label">文字大小</span>
             <div className="text-size-options">{[['system', '系統預設'], ['standard', '標準'], ['large', '大字'], ['xlarge', '特大']].map(([id, label]) => <button type="button" key={id} className={(settings.display?.textSize || 'system') === id ? 'is-active' : ''} onClick={() => updateNestedSetting('display', 'textSize', id)}>{label}</button>)}</div>
           </div>
-          {showOnboardingRestart && <SettingRow icon={RotateCcw} title="重新查看進入畫面" detail="僅供開發測試，不會出現在正式版本" onClick={onRestartOnboarding} />}
           <SettingRow icon={Palette} title="首頁顯示內容" detail="待辦、最近紀錄與夢想目標" onClick={() => openPanel('home')} />
           <SettingRow icon={Bell} title="通知與提醒" detail="待繳費、預算與每日摘要" tone="peach" onClick={() => openPanel('notifications')} />
         </SettingsSection>

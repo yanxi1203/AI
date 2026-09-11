@@ -562,3 +562,73 @@ test('dream planning sentences never become ledger expenses', () => {
     assert.equal('transactions' in result, false, text);
   }
 });
+
+
+test('a yesterday transaction shows the same stored date in the success reply', () => {
+  const result = processFinanceMessage({
+    text: '昨天午餐 130',
+    transactions: [],
+    now: new Date('2026-09-09T12:00:00+08:00')
+  });
+
+  assert.equal(result.kind, 'transaction_added');
+  assert.equal(result.transaction.date, '2026-09-08');
+  assert.match(result.reply, /已記下「午餐」\$130。/);
+  assert.match(result.reply, /9\/8 · 飲食/);
+
+  const today = processFinanceMessage({
+    text: '今天早餐 80',
+    transactions: [],
+    now: new Date('2026-09-09T12:00:00+08:00')
+  });
+  assert.equal(today.transaction.date, '2026-09-09');
+  assert.match(today.reply, /9\/9 · 飲食/);
+});
+
+
+test('front-day wording uses two days ago and is removed from the transaction title', () => {
+  const result = processFinanceMessage({
+    text: '前天買衣服 299',
+    transactions: [],
+    now: new Date('2026-09-09T12:00:00+08:00')
+  });
+
+  assert.equal(result.kind, 'transaction_added');
+  assert.equal(result.transaction.date, '2026-09-07');
+  assert.equal(result.transaction.title, '買衣服');
+  assert.equal(result.transaction.amount, 299);
+  assert.equal(result.transaction.category, '日常');
+});
+
+test('common clothing and shoe words use the existing daily category', () => {
+  for (const item of ['衣服', '上衣', '褲子', '外套', '鞋子', '球鞋', '洋裝']) {
+    const result = processFinanceMessage({
+      text: `買${item} 299`,
+      transactions: [],
+      now: new Date('2026-09-09T12:00:00+08:00')
+    });
+
+    assert.equal(result.kind, 'transaction_added', item);
+    assert.equal(result.transaction.category, '日常', item);
+  }
+});
+
+test('existing everyday NLP examples keep their category and date behavior', () => {
+  const cases = [
+    ['飲料 50', '飲食', '2026-09-09'],
+    ['捷運 300', '交通', '2026-09-09'],
+    ['看電影 340', '娛樂', '2026-09-09'],
+    ['昨天午餐 130', '飲食', '2026-09-08']
+  ];
+
+  for (const [text, category, date] of cases) {
+    const result = processFinanceMessage({
+      text,
+      transactions: [],
+      now: new Date('2026-09-09T12:00:00+08:00')
+    });
+    assert.equal(result.kind, 'transaction_added', text);
+    assert.equal(result.transaction.category, category, text);
+    assert.equal(result.transaction.date, date, text);
+  }
+});

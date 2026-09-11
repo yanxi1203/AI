@@ -9,6 +9,7 @@ import CarrierPage from '../pages/CarrierPage';
 import OnboardingFlow from '../pages/OnboardingFlow';
 import AuthLoadingScreen from '../pages/AuthLoadingScreen';
 import { createFinanceSummary } from '../modules/finance/financeSummary';
+import { answerFinanceQuestion } from '../modules/finance/financeQuestion';
 import {
   createFinancialSetup,
   findPaymentTaskMatches,
@@ -22,16 +23,11 @@ import {
   createGoalDraftFromMessage,
   resolveGoalIntentAction
 } from '../modules/goals/goalIntent';
-import { generateButlerChatReply } from '../utils/butlerEngine';
 import { clearAppState, createAppSnapshot, loadAppState, saveAppState } from '../modules/persistence/appStateClient';
 import { sendFinanceMessage } from '../modules/persistence/financeAssistantClient';
 import { createLatestSnapshotSaver } from '../modules/persistence/latestSnapshotSaver';
 import { createUserStorage, normalizeSettings } from '../utils/storage';
 import { getLocalDateKey } from '../utils/date';
-
-function plainButlerReply(reply) {
-  return reply.replace(/^.*?：「/, '').replace(/」$/, '');
-}
 
 function paymentTasksToFixedItems(items) {
   return (Array.isArray(items) ? items : []).filter(isPaymentTask).map((item) => ({
@@ -298,13 +294,15 @@ export default function FinanceApp({ userId, accessToken, isAnonymous = false, u
     }
     if (result.kind === 'chat') {
       setPendingConfirmation(null);
-      setFinReply(plainButlerReply(generateButlerChatReply(text, {
-        monthlyBudget,
-        currentMonthExpenses: summary.currentExpenses,
-        monthRemaining: summary.monthRemaining,
-        todaySpent: summary.todayExpenses,
-        todayAvailable: summary.todayAvailable
-      }, settings)));
+      const answer = answerFinanceQuestion(text, {
+        summary,
+        recurring,
+        goals,
+        monthlySavingCapacity: settings.allocation?.savings || 0,
+        allocationStatus: settings.allocation?.status,
+        now: new Date()
+      });
+      setFinReply(answer.reply);
     }
   };
 
@@ -543,7 +541,6 @@ export default function FinanceApp({ userId, accessToken, isAnonymous = false, u
     return (
       <div className="app-stage">
         <section className="phone-shell onboarding-shell" aria-label="Fin 首次使用設定">
-          <div className="ios-status" aria-hidden="true"><span>9:41</span><i /><span>●●●</span></div>
           <div className="app-scroll onboarding-scroll">
             <OnboardingFlow key={onboardingSession} settings={settings} onComplete={completeOnboarding} />
           </div>
@@ -557,7 +554,6 @@ export default function FinanceApp({ userId, accessToken, isAnonymous = false, u
   return (
     <div className="app-stage">
       <section className="phone-shell" aria-label="AI 財務管家">
-        <div className="ios-status" aria-hidden="true"><span>9:41</span><i /><span>●●●</span></div>
         <div className="app-scroll">
           {activePage === 'home' && <HomePage summary={summary} goals={goals} recurring={recurring} settings={settings} finReply={finReply} pendingConfirmation={pendingConfirmation} paymentMatch={paymentMatch} goalDraft={goalDraft} onSendMessage={handleSendMessage} onResolvePending={(confirmed) => handleSendMessage(confirmed ? '是' : '不是')} onResolvePaymentMatch={resolvePaymentMatch} onResolveGoalIntent={handleGoalIntent} onReminderAction={handleReminderAction} onOpenCarrier={() => openSubpage('carrier', 'home')} onOpenGoals={() => openSubpage('goals', 'home')} onOpenSettings={() => navigate('settings')} />}
           {activePage === 'ledger' && <LedgerPage summary={summary} butlerName={settings.name} categories={settings.categories} allocationStatus={settings.allocation?.status} onDeleteTransaction={deleteTransaction} onEditTransaction={editTransaction} />}

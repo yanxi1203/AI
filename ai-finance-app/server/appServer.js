@@ -13,6 +13,13 @@ const sendJson = (response, status, body) => {
 };
 
 async function readJsonBody(request) {
+  if (request.body !== undefined && request.body !== null) {
+    if (typeof request.body === 'object') return request.body;
+    if (typeof request.body === 'string') {
+      const trimmed = request.body.trim();
+      return trimmed ? JSON.parse(trimmed) : {};
+    }
+  }
   const chunks = [];
   let total = 0;
   for await (const chunk of request) {
@@ -34,7 +41,7 @@ const requireAuthentication = async (request, authenticateRequest) => {
   return authenticateRequest(request);
 };
 
-export function createAppServer({
+export function createAppHandler({
   store,
   authenticateRequest,
   financeMessageProcessor,
@@ -43,22 +50,26 @@ export function createAppServer({
 }) {
   if (!store) throw new TypeError('store 為必填');
 
-  return createServer(async (request, response) => {
+  return async function appHandler(request, response) {
     try {
       const url = new URL(request.url, 'http://127.0.0.1');
+      let pathname = url.pathname;
+      if (!pathname.startsWith('/api')) {
+        pathname = `/api${pathname.startsWith('/') ? '' : '/'}${pathname}`;
+      }
 
-      if (request.method === 'GET' && url.pathname === '/api/health') {
+      if (request.method === 'GET' && pathname === '/api/health') {
         sendJson(response, 200, { status: 'ok' });
         return;
       }
 
-      if (request.method === 'GET' && url.pathname === '/api/state') {
+      if (request.method === 'GET' && pathname === '/api/state') {
         const auth = await requireAuthentication(request, authenticateRequest);
         sendJson(response, 200, await store.load(auth));
         return;
       }
 
-      if (request.method === 'PUT' && url.pathname === '/api/state') {
+      if (request.method === 'PUT' && pathname === '/api/state') {
         const auth = await requireAuthentication(request, authenticateRequest);
         const body = await readJsonBody(request);
         const saved = await store.save(auth, body.state, { expectedRevision: body.expectedRevision });
@@ -66,14 +77,14 @@ export function createAppServer({
         return;
       }
 
-      if (request.method === 'DELETE' && url.pathname === '/api/state') {
+      if (request.method === 'DELETE' && pathname === '/api/state') {
         const auth = await requireAuthentication(request, authenticateRequest);
         await store.clear(auth);
         sendJson(response, 200, { cleared: true });
         return;
       }
 
-      if (request.method === 'POST' && url.pathname === '/api/assistant/message') {
+      if (request.method === 'POST' && pathname === '/api/assistant/message') {
         const auth = await requireAuthentication(request, authenticateRequest);
         if (typeof financeMessageProcessor !== 'function') throw new Error('尚未設定自然語言處理模組');
         const body = await readJsonBody(request);
@@ -100,7 +111,7 @@ export function createAppServer({
         return;
       }
 
-      if (request.method === 'POST' && url.pathname === '/api/goals/estimate') {
+      if (request.method === 'POST' && pathname === '/api/goals/estimate') {
         if (typeof goalEstimator !== 'function') throw new Error('尚未設定夢想估算模組');
         const body = await readJsonBody(request);
         const estimate = goalEstimator({
@@ -128,5 +139,9 @@ export function createAppServer({
         ...(error.code ? { code: error.code } : {})
       });
     }
-  });
+  };
+}
+
+export function createAppServer(options) {
+  return createServer(createAppHandler(options));
 }

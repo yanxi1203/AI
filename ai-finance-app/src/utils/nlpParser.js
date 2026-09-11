@@ -40,7 +40,7 @@ export function parseNaturalLanguageInput(text, now = new Date()) {
     category = '學習';
   } else if (/(看診|掛號|醫院|診所|藥局|藥品|醫療)/i.test(cleanText)) {
     category = '醫療';
-  } else if (/(衛生棉|衛生紙|洗髮|沐浴|牙膏|日用品|生活用品)/i.test(cleanText)) {
+  } else if (/(衛生棉|衛生紙|洗髮|沐浴|牙膏|日用品|生活用品|衣服|上衣|褲子|外套|鞋子|球鞋|洋裝)/i.test(cleanText)) {
     category = '日常';
   } else if (/(房租|水電|電費|網路費|信用卡|管理費|固定)/i.test(cleanText)) {
     category = '固定支出';
@@ -71,7 +71,7 @@ export function parseNaturalLanguageInput(text, now = new Date()) {
 
   // Extract Title / Item Name
   let title = cleanText
-    .replace(/(今天|昨天|剛才|早上|中午|晚上)/g, '')
+    .replace(/(今天|昨天|前天|剛才|早上|中午|晚上)/g, '')
     .replace(/[\d,]+\s*(元|塊|千|萬|幣)?/g, '')
     .replace(/(記帳|幫我記|記一下|記錄|加入帳本|花了|刷了|買了|吃了|搭了|領了|領到|收到|獲得|存了|想買|想存)/g, '')
     .replace(/(多少錢?|很多錢|大概|幾塊|幾元)/g, '')
@@ -87,7 +87,11 @@ export function parseNaturalLanguageInput(text, now = new Date()) {
   // Date parsing (default today YYYY-MM-DD)
   const today = new Date(now);
   let dateStr = getLocalDateKey(today);
-  if (cleanText.includes('昨天')) {
+  if (cleanText.includes('前天')) {
+    const dayBeforeYesterday = new Date(today);
+    dayBeforeYesterday.setDate(today.getDate() - 2);
+    dateStr = getLocalDateKey(dayBeforeYesterday);
+  } else if (cleanText.includes('昨天')) {
     const yesterday = new Date(today);
     yesterday.setDate(today.getDate() - 1);
     dateStr = getLocalDateKey(yesterday);

@@ -1,6 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import {
+  addGoalDeposit,
   changeGoalStatus,
   createConfirmedGoal,
   createGoalPlans,
@@ -8,9 +9,53 @@ import {
   getGoalAmountRoute,
   getGoalStatus,
   groupGoalsByStatus,
+  getGoalAffordability,
   parseGoalAmount,
   updateGoalRecord
 } from './goalPlanner.js';
+
+
+test('adds a deposit without changing goal identity and completes a fully funded goal', () => {
+  const active = { id: 'goal_trip', title: '日本旅行', targetAmount: 30000, savedAmount: 8000, status: 'active' };
+  const updated = addGoalDeposit(active, 2000, new Date('2026-09-08T04:00:00.000Z'));
+  assert.equal(updated.id, 'goal_trip');
+  assert.equal(updated.savedAmount, 10000);
+  assert.equal(updated.status, 'active');
+  const completed = addGoalDeposit(updated, 25000, new Date('2026-09-09T04:00:00.000Z'));
+  assert.equal(completed.savedAmount, 35000);
+  assert.equal(completed.status, 'completed');
+  assert.equal(completed.completedAt, '2026-09-09T04:00:00.000Z');
+  assert.throws(() => addGoalDeposit(active, 0), /存款金額必須大於 0/);
+});
+
+test('calculates remaining money, progress and monthly affordability from existing finance data', () => {
+  const result = getGoalAffordability({ targetAmount: 30000, savedAmount: 10000, targetDate: '2027-01-08' }, {
+    monthlySavingCapacity: 6000, allocationStatus: 'ready', now: new Date('2026-09-08T00:30:00+08:00')
+  });
+  assert.equal(result.remainingAmount, 20000);
+  assert.equal(result.percent, 33);
+  assert.equal(result.progressPercent, 33);
+  assert.equal(result.remainingMonths, 4);
+  assert.equal(result.recommendedMonthly, 5000);
+  assert.equal(result.capacityStatus, 'on-track');
+  assert.equal(result.message, '照目前狀況，這個目標很有機會完成。');
+});
+
+test('does not invent affordability when finance data is insufficient and clamps completed progress', () => {
+  const insufficient = getGoalAffordability({ targetAmount: 30000, savedAmount: 8000, targetDate: '2027-01-08' }, {
+    monthlySavingCapacity: 0, allocationStatus: 'pending-income', now: new Date('2026-09-08T00:30:00+08:00')
+  });
+  assert.equal(insufficient.capacityStatus, 'insufficient-data');
+  assert.equal(insufficient.message, '目前資料不足，先多記錄一些收支後，FinMate 會更容易幫你評估。');
+  const completed = getGoalAffordability({ targetAmount: 30000, savedAmount: 35000, targetDate: '2026-09-08' }, {
+    monthlySavingCapacity: 5000, allocationStatus: 'ready'
+  });
+  assert.equal(completed.remainingAmount, 0);
+  assert.equal(completed.percent, 117);
+  assert.equal(completed.progressPercent, 100);
+  assert.equal(completed.completed, true);
+  assert.equal(completed.message, '夢想達成！');
+});
 
 test('known goal amounts skip estimation while unknown ambiguous goals ask for a type', () => {
   assert.equal(getGoalAmountRoute({ amountMode: 'known', amountInput: '30,000', title: '新電腦' }), 'savings');
